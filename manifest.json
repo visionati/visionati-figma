@@ -1,0 +1,21 @@
+{
+  "name": "Visionati",
+  "id": "visionati-figma-plugin",
+  "api": "1.0.0",
+  "editorType": ["figma"],
+  "main": "code.js",
+  "ui": "ui.html",
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["api.visionati.com"]
+  },
+  "menu": [
+    { "name": "Generate for Selection", "command": "selection" },
+    { "name": "Scan All Images on Page", "command": "all-images" },
+    { "separator": true },
+    { "name": "Settings", "command": "settings" }
+  ],
+  "relaunchButtons": [
+    { "command": "selection", "name": "Generate with Visionati", "multipleSelection": true }
+  ]
+}
