@@ -10,6 +10,5 @@
     "@figma/plugin-typings": "^1.123.0",
     "typescript": "^5.3.3"
   },
-  "license": "UNLICENSED",
-  "private": true
+  "license": "MIT"
 }

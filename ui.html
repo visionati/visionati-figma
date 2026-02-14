@@ -23,11 +23,7 @@
     --color-error: #e74c3c;
   }
 
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
     height: 100%;
@@ -36,20 +32,22 @@
     font-size: var(--font-size-base);
     background-color: var(--figma-color-bg);
     color: var(--figma-color-text);
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
-  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--figma-color-border); border-radius: 3px; }
 
-  /* ===== Layout ===== */
+  /* ===== Shell ===== */
 
   #plugin-container {
     display: flex;
     flex-direction: column;
     height: 100%;
   }
+
+  /* ===== Tabs ===== */
 
   #tabs {
     display: flex;
@@ -59,7 +57,7 @@
 
   .tab {
     flex: 1;
-    padding: 10px var(--spacing);
+    padding: 9px var(--spacing);
     text-align: center;
     font-size: var(--font-size-sm);
     font-weight: 600;
@@ -69,11 +67,8 @@
     border-bottom: 2px solid transparent;
     cursor: pointer;
     transition: color var(--transition), border-color var(--transition);
-    letter-spacing: 0.01em;
   }
-
   .tab:hover { color: var(--figma-color-text); }
-
   .tab.active {
     color: var(--figma-color-text);
     border-bottom-color: var(--visionati-orange);
@@ -82,17 +77,498 @@
   .tab-panel {
     display: none;
     flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-xl);
+    min-height: 0;
+    flex-direction: column;
+  }
+  .tab-panel.active { display: flex; }
+
+  /* ===== Generate Tab: sticky controls + scrollable results ===== */
+
+  #generate-controls {
+    flex-shrink: 0;
+    padding: var(--spacing-lg) var(--spacing-xl) var(--spacing);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    border-bottom: 1px solid var(--figma-color-border);
   }
 
-  .tab-panel.active {
+  #generate-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-lg) var(--spacing-xl);
+  }
+
+  /* ===== Error banner ===== */
+
+  .error-banner {
+    display: none;
+    padding: var(--spacing) var(--spacing-lg);
+    background-color: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: var(--radius-sm);
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .error-banner.visible { display: block; }
+  .error-banner div + div { margin-top: 4px; }
+  .error-banner .dismiss {
+    float: right;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 0 0 8px;
+    opacity: 0.7;
+  }
+  .error-banner .dismiss:hover { opacity: 1; }
+
+  /* ===== Field pills (compact horizontal) ===== */
+
+  .field-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .field-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid var(--figma-color-border);
+    background: none;
+    color: var(--figma-color-text-secondary);
+    transition: all var(--transition);
+    user-select: none;
+  }
+  .field-pill:hover { border-color: var(--figma-color-text-secondary); }
+
+  .field-pill input { display: none; }
+
+  .field-pill .pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    transition: opacity var(--transition);
+    opacity: 0.4;
+  }
+  .field-pill.checked .pill-dot { opacity: 1; }
+
+  .field-pill.checked {
+    color: var(--figma-color-text);
+    font-weight: 600;
+  }
+
+  .field-pill.checked.alt-text { border-color: var(--color-alt-text); background: rgba(46,204,113,0.08); }
+  .field-pill.checked.caption { border-color: var(--color-caption); background: rgba(52,152,219,0.08); }
+  .field-pill.checked.description { border-color: var(--color-description); background: rgba(155,89,182,0.08); }
+
+  .pill-dot.alt-text { background: var(--color-alt-text); }
+  .pill-dot.caption { background: var(--color-caption); }
+  .pill-dot.description { background: var(--color-description); }
+
+  /* ===== Action row ===== */
+
+  .controls-row {
+    display: flex;
+    gap: var(--spacing);
+    align-items: center;
+  }
+
+
+
+  /* ===== Buttons ===== */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px var(--spacing-lg);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color var(--transition), opacity var(--transition);
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-primary { background-color: var(--visionati-orange); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background-color: var(--visionati-orange-hover); }
+
+  .btn-brand { background-color: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); }
+  .btn-brand:hover:not(:disabled) { opacity: 0.9; }
+
+  .btn-secondary {
+    background-color: var(--figma-color-bg-secondary);
+    color: var(--figma-color-text);
+    border: 1px solid var(--figma-color-border);
+  }
+  .btn-secondary:hover:not(:disabled) { background-color: var(--figma-color-border); }
+
+  .btn-sm { padding: 4px var(--spacing); font-size: var(--font-size-xs); }
+
+  .btn-text {
+    background: none;
+    border: none;
+    color: var(--figma-color-text-secondary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: var(--radius-sm);
+  }
+  .btn-text:hover { color: var(--figma-color-text); background: var(--figma-color-bg-secondary); }
+  .btn-text.danger:hover { color: var(--color-error); background: rgba(231,76,60,0.08); }
+
+  .generate-buttons {
+    display: flex;
+    gap: var(--spacing);
+    flex: 1;
+  }
+  .generate-buttons .btn { flex: 1; }
+
+  /* ===== Selection annotations (read-back) ===== */
+
+  #selection-annotations { display: none; }
+  #selection-annotations.visible {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .sel-ann-header {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--figma-color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .sel-ann-node {
+    border: 1px solid var(--figma-color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .sel-ann-node-name {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sel-ann-entry {
+    padding: var(--spacing) var(--spacing-lg);
+    border-bottom: 1px solid var(--figma-color-border);
+    display: flex;
+    gap: var(--spacing);
+    align-items: flex-start;
+  }
+  .sel-ann-entry:last-child { border-bottom: none; }
+
+  .sel-ann-content { flex: 1; min-width: 0; }
+
+  .sel-ann-text {
+    cursor: text;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    margin: 0 -4px;
+    transition: background-color var(--transition);
+  }
+  .sel-ann-text:hover { background-color: var(--figma-color-bg-secondary); }
+
+  .sel-ann-edit-area { display: none; }
+  .sel-ann-entry.editing .sel-ann-text { display: none; }
+  .sel-ann-entry.editing .sel-ann-edit-area { display: block; }
+
+  .sel-ann-edit-textarea {
+    width: 100%;
+    min-height: 50px;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--figma-color-text);
+    background-color: var(--figma-color-bg-secondary);
+    border: 1px solid var(--figma-color-border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    padding: 4px 6px;
+    resize: vertical;
+    margin-top: 4px;
+  }
+  .sel-ann-edit-textarea:focus { border-color: var(--figma-color-border-selected); }
+
+  .sel-ann-edit-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .sel-ann-remove {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--figma-color-text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity var(--transition), color var(--transition);
+  }
+  .sel-ann-remove:hover { opacity: 1; color: var(--color-error); }
+
+  .sel-ann-node-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px var(--spacing-lg);
+    background-color: var(--figma-color-bg-secondary);
+    border-bottom: 1px solid var(--figma-color-border);
+  }
+
+  .sel-ann-label {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background-color: var(--figma-color-bg-secondary);
+    color: var(--figma-color-text-secondary);
+  }
+  .sel-ann-label.cat-alt-text { background-color: rgba(46,204,113,0.15); color: #27ae60; }
+  .sel-ann-label.cat-caption { background-color: rgba(52,152,219,0.15); color: #2980b9; }
+  .sel-ann-label.cat-description { background-color: rgba(155,89,182,0.15); color: #8e44ad; }
+
+  .sel-ann-text {
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--figma-color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ===== Results area ===== */
+
+  #results-area { display: none; }
+  #results-area.visible { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+
+  .results-apply-all {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+  }
+
+  .results-apply-all .btn { flex: 1; }
+
+  .results-apply-all .summary {
+    font-size: var(--font-size-xs);
+    color: var(--figma-color-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .results-apply-all .summary strong {
+    color: var(--figma-color-text);
+    font-weight: 600;
+  }
+
+  /* ===== Idle message (when no results yet) ===== */
+
+  #idle-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px var(--spacing-xl);
+    flex: 1;
+  }
+
+  #idle-message p {
+    font-size: var(--font-size-sm);
+    color: var(--figma-color-text-secondary);
+    line-height: 1.5;
+    max-width: 240px;
+  }
+
+  /* ===== Node card ===== */
+
+  .node-card {
+    border: 1px solid var(--figma-color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color var(--transition);
+  }
+  .node-card.all-applied { border-color: var(--color-applied); }
+
+  .node-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px var(--spacing-lg);
+    background-color: var(--figma-color-bg-secondary);
+    border-bottom: 1px solid var(--figma-color-border);
+    gap: var(--spacing);
+    min-height: 32px;
+  }
+
+  .node-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--figma-color-border);
+    background-color: var(--figma-color-bg);
+  }
+
+  .node-card-header .node-name {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .node-card-header .node-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .node-card-body { display: flex; flex-direction: column; }
+
+  /* ===== Field entry ===== */
+
+  .field-entry {
+    padding: var(--spacing) var(--spacing-lg) var(--spacing-lg);
+    border-bottom: 1px solid var(--figma-color-border);
+    transition: opacity var(--transition);
+  }
+  .field-entry:last-child { border-bottom: none; }
+  .field-entry.applied { opacity: 0.5; }
+
+  .field-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .field-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .field-badge.alt-text { background-color: rgba(46,204,113,0.15); color: #27ae60; }
+  .field-badge.caption { background-color: rgba(52,152,219,0.15); color: #2980b9; }
+  .field-badge.description { background-color: rgba(155,89,182,0.15); color: #8e44ad; }
+
+  .field-entry-header .backend-label {
+    font-size: var(--font-size-xs);
+    color: var(--figma-color-text-secondary);
+    margin-left: auto;
+  }
+
+  .field-entry-header .applied-badge {
+    font-size: var(--font-size-xs);
+    padding: 1px 6px;
+    border-radius: 3px;
+    background-color: rgba(46,204,113,0.15);
+    color: var(--color-applied);
+    font-weight: 600;
+    margin-left: auto;
+  }
+
+  .field-description-text {
+    font-size: var(--font-size-sm);
+    line-height: 1.55;
+    color: var(--figma-color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    cursor: text;
+    border-radius: var(--radius-sm);
+    padding: 4px 6px;
+    margin: 0 -6px;
+    transition: background-color var(--transition);
+  }
+  .field-description-text:hover {
+    background-color: var(--figma-color-bg-secondary);
+  }
+  .field-entry.applied .field-description-text {
+    cursor: default;
+  }
+  .field-entry.applied .field-description-text:hover {
+    background: none;
+  }
+
+  .field-edit-textarea {
+    display: none;
+    width: 100%;
+    min-height: 60px;
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--figma-color-text);
+    background-color: var(--figma-color-bg-secondary);
+    border: 1px solid var(--figma-color-border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    padding: 6px var(--spacing);
+    resize: vertical;
+  }
+  .field-edit-textarea:focus { border-color: var(--figma-color-border-selected); }
+
+  .field-entry.editing .field-description-text { display: none; }
+  .field-entry.editing .field-edit-textarea { display: block; }
+
+  .field-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .field-actions .spacer { flex: 1; }
+
+  .field-entry.applied .field-actions .btn,
+  .field-entry.applied .field-actions .btn-text { display: none; }
+
+  /* ===== Settings tab ===== */
+
+  .settings-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-xl);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
   }
-
-  /* ===== Form Elements ===== */
 
   .field-group {
     display: flex;
@@ -132,12 +608,11 @@
     outline: none;
     transition: border-color var(--transition);
   }
-
   input:focus, select:focus, textarea:focus {
     border-color: var(--figma-color-border-selected);
   }
 
-  textarea {
+  textarea.settings-textarea {
     resize: vertical;
     min-height: 60px;
     font-size: var(--font-size-sm);
@@ -153,193 +628,32 @@
     padding-right: 24px;
   }
 
-  /* ===== Buttons ===== */
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px var(--spacing-lg);
-    font-family: inherit;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: background-color var(--transition), opacity var(--transition);
-    white-space: nowrap;
-  }
-
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .btn-primary {
-    background-color: var(--visionati-orange);
-    color: #fff;
-  }
-  .btn-primary:hover:not(:disabled) { background-color: var(--visionati-orange-hover); }
-
-  .btn-brand {
-    background-color: var(--figma-color-bg-brand);
-    color: var(--figma-color-text-onbrand);
-  }
-  .btn-brand:hover:not(:disabled) { opacity: 0.9; }
-
-  .btn-secondary {
-    background-color: var(--figma-color-bg-secondary);
-    color: var(--figma-color-text);
-    border: 1px solid var(--figma-color-border);
-  }
-  .btn-secondary:hover:not(:disabled) { background-color: var(--figma-color-border); }
-
-  .btn-sm { padding: 5px var(--spacing); font-size: var(--font-size-xs); }
-
-  .btn-danger-text {
-    background: none;
-    border: none;
-    color: var(--figma-color-text-secondary);
+  .key-status {
     font-size: var(--font-size-xs);
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
+    padding: 2px 0;
   }
-  .btn-danger-text:hover { color: var(--color-error); background: rgba(231, 76, 60, 0.08); }
+  .key-status.valid { color: #27ae60; }
+  .key-status.invalid { color: var(--color-error); }
 
-  .actions-row {
-    display: flex;
-    gap: var(--spacing);
-  }
-  .actions-row .btn { flex: 1; }
-
-  /* ===== Checkbox ===== */
-
-  .checkbox-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing);
-  }
-
-  .checkbox-row input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--visionati-orange);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .checkbox-row label {
-    font-size: var(--font-size-sm);
-    color: var(--figma-color-text);
-    cursor: pointer;
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 400;
-  }
-
-  /* ===== Field Checkboxes ===== */
-
-  .field-checkboxes {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .field-checkboxes-label {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--figma-color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 2px;
-  }
-
-  .field-checkbox-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing);
-    padding: 5px var(--spacing);
-    border-radius: var(--radius-sm);
-    transition: background-color var(--transition);
-  }
-
-  .field-checkbox-row:hover {
-    background-color: var(--figma-color-bg-secondary);
-  }
-
-  .field-checkbox-row input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .field-checkbox-row input[type="checkbox"].field-alt-text { accent-color: var(--color-alt-text); }
-  .field-checkbox-row input[type="checkbox"].field-caption { accent-color: var(--color-caption); }
-  .field-checkbox-row input[type="checkbox"].field-description { accent-color: var(--color-description); }
-
-  .field-checkbox-row label {
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .field-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .field-dot.alt-text { background-color: var(--color-alt-text); }
-  .field-dot.caption { background-color: var(--color-caption); }
-  .field-dot.description { background-color: var(--color-description); }
-
-  .field-role-hint {
-    font-size: var(--font-size-xs);
-    color: var(--figma-color-text-secondary);
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  /* ===== Status Bar ===== */
-
-  #status-bar {
-    flex-shrink: 0;
-    padding: 6px var(--spacing-xl);
-    font-size: var(--font-size-xs);
-    color: var(--figma-color-text-secondary);
-    border-top: 1px solid var(--figma-color-border);
-    min-height: 28px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing);
-    background-color: var(--figma-color-bg);
-  }
-
-  #status-bar .spinner {
+  /* First-run banner in settings */
+  .first-run-banner {
     display: none;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--figma-color-border);
-    border-top-color: var(--visionati-orange);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
+    padding: var(--spacing) var(--spacing-lg);
+    background: rgba(251, 115, 0, 0.08);
+    border: 1px solid rgba(251, 115, 0, 0.25);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--figma-color-text);
+    line-height: 1.4;
   }
+  .first-run-banner.visible { display: block; }
 
-  #status-bar.loading .spinner { display: block; }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ===== Progress Bar ===== */
+  /* ===== Progress bar ===== */
 
   .progress-bar-container {
     display: none;
     flex-shrink: 0;
-    padding: 0 var(--spacing-xl) var(--spacing);
+    padding: 0 var(--spacing-xl) var(--spacing-sm);
   }
   .progress-bar-container.visible { display: block; }
 
@@ -359,509 +673,319 @@
     width: 0%;
   }
 
-  /* ===== Error Banner ===== */
+  /* ===== Status bar ===== */
 
-  .error-banner {
-    display: none;
-    padding: var(--spacing) var(--spacing-lg);
-    background-color: rgba(231, 76, 60, 0.1);
-    border: 1px solid rgba(231, 76, 60, 0.3);
-    border-radius: var(--radius-sm);
-    color: var(--color-error);
-    font-size: var(--font-size-sm);
-    line-height: 1.4;
-    word-break: break-word;
-  }
-  .error-banner.visible { display: block; }
-
-  .error-banner .dismiss {
-    float: right;
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    padding: 0 0 0 8px;
-    opacity: 0.7;
-  }
-  .error-banner .dismiss:hover { opacity: 1; }
-
-  /* ===== Result Cards ===== */
-
-  #results-area {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-
-  .results-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing);
-  }
-
-  .results-header h3 {
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .results-summary {
+  #status-bar {
+    flex-shrink: 0;
+    padding: 5px var(--spacing-xl);
     font-size: var(--font-size-xs);
     color: var(--figma-color-text-secondary);
-  }
-
-  /* Node card — groups fields for one image */
-  .node-card {
-    border: 1px solid var(--figma-color-border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    transition: border-color var(--transition);
-  }
-
-  .node-card.all-applied { border-color: var(--color-applied); }
-
-  .node-card-header {
+    border-top: 1px solid var(--figma-color-border);
+    min-height: 26px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing) var(--spacing-lg);
-    background-color: var(--figma-color-bg-secondary);
-    border-bottom: 1px solid var(--figma-color-border);
     gap: var(--spacing);
+    background-color: var(--figma-color-bg);
   }
 
-  .node-card-header .node-name {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .node-card-header .node-actions {
-    display: flex;
-    gap: 4px;
-    align-items: center;
+  #status-bar .spinner {
+    display: none;
+    width: 11px;
+    height: 11px;
+    border: 1.5px solid var(--figma-color-border);
+    border-top-color: var(--visionati-orange);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
     flex-shrink: 0;
   }
+  #status-bar.loading .spinner { display: block; }
 
-  .node-card-body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Field entry — one field within a node card */
-  .field-entry {
-    padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--figma-color-border);
-    transition: opacity var(--transition);
-  }
-
-  .field-entry:last-child { border-bottom: none; }
-
-  .field-entry.applied { opacity: 0.55; }
-
-  .field-entry-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: var(--spacing);
-  }
-
-  .field-badge {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 3px;
-    white-space: nowrap;
-  }
-
-  .field-badge.alt-text { background-color: rgba(46, 204, 113, 0.15); color: #27ae60; }
-  .field-badge.caption { background-color: rgba(52, 152, 219, 0.15); color: #2980b9; }
-  .field-badge.description { background-color: rgba(155, 89, 182, 0.15); color: #8e44ad; }
-
-  .field-entry-header .backend-label {
-    font-size: var(--font-size-xs);
-    color: var(--figma-color-text-secondary);
-    margin-left: auto;
-  }
-
-  .field-entry-header .applied-badge {
-    font-size: var(--font-size-xs);
-    padding: 2px 6px;
-    border-radius: 3px;
-    background-color: rgba(46, 204, 113, 0.15);
-    color: var(--color-applied);
-    font-weight: 600;
-    margin-left: auto;
-  }
-
-  .field-description-text {
-    font-size: var(--font-size-sm);
-    line-height: 1.6;
-    color: var(--figma-color-text);
-    white-space: pre-wrap;
-    word-break: break-word;
-    margin-bottom: var(--spacing);
-  }
-
-  .field-edit-textarea {
-    display: none;
-    width: 100%;
-    min-height: 70px;
-    margin-bottom: var(--spacing);
-  }
-
-  .field-entry.editing .field-description-text { display: none; }
-  .field-entry.editing .field-edit-textarea { display: block; }
-
-  .field-actions {
-    display: flex;
-    gap: var(--spacing);
-    align-items: center;
-  }
-
-  .field-actions .spacer { flex: 1; }
-
-  .field-entry.applied .field-actions .btn,
-  .field-entry.applied .field-actions .btn-danger-text { display: none; }
-
-  /* ===== Empty State ===== */
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 40px var(--spacing-xl);
-    gap: var(--spacing-lg);
-    flex: 1;
-  }
-
-  .empty-state .icon { font-size: 32px; opacity: 0.4; }
-
-  .empty-state p {
-    font-size: var(--font-size-sm);
-    color: var(--figma-color-text-secondary);
-    line-height: 1.5;
-    max-width: 280px;
-  }
-
-
-
-  /* ===== Key verified indicator ===== */
-
-  .key-status {
-    font-size: var(--font-size-xs);
-    padding: 2px 0;
-  }
-  .key-status.valid { color: #27ae60; }
-  .key-status.invalid { color: var(--color-error); }
-
-  /* ===== Divider ===== */
-  .divider {
-    height: 1px;
-    background-color: var(--figma-color-border);
-    margin: var(--spacing-sm) 0;
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
-<body>
+<body></body>
   <div id="plugin-container">
-    <!-- Tabs -->
+    <!-- ===== Tabs ===== -->
     <div id="tabs">
       <button class="tab active" data-tab="generate">Generate</button>
-      <button class="tab" data-tab="results">Results</button>
       <button class="tab" data-tab="settings">Settings</button>
     </div>
 
     <!-- ===== Generate Tab ===== -->
     <div id="tab-generate" class="tab-panel active">
-      <div id="error-banner" class="error-banner">
-        <button class="dismiss" onclick="dismissError()">&times;</button>
-        <span id="error-message"></span>
-      </div>
+      <!-- Sticky controls -->
+      <div id="generate-controls">
+        <div id="error-banner" class="error-banner">
+          <button class="dismiss" onclick="dismissError()">&times;</button>
+          <span id="error-message"></span>
+        </div>
 
-      <div class="empty-state" id="generate-empty">
-        <div class="icon">&#x1F5BC;&#xFE0F;</div>
-        <p>Select layers with images, then choose which fields to generate. Or scan the entire page for images missing annotations.</p>
-      </div>
-
-      <!-- Field checkboxes -->
-      <div class="field-checkboxes">
-        <div class="field-checkboxes-label">Fields to Generate</div>
-        <div class="field-checkbox-row">
-          <input type="checkbox" id="field-alt-text" class="field-alt-text" checked>
-          <label for="field-alt-text">
-            <span class="field-dot alt-text"></span>
+        <!-- Field pills -->
+        <div class="field-pills">
+          <label class="field-pill checked alt-text" id="pill-alt-text">
+            <input type="checkbox" id="field-alt-text" checked>
+            <span class="pill-dot alt-text"></span>
             Alt Text
           </label>
-          <span class="field-role-hint">WCAG-compliant</span>
-        </div>
-        <div class="field-checkbox-row">
-          <input type="checkbox" id="field-caption" class="field-caption">
-          <label for="field-caption">
-            <span class="field-dot caption"></span>
+          <label class="field-pill caption" id="pill-caption">
+            <input type="checkbox" id="field-caption">
+            <span class="pill-dot caption"></span>
             Caption
           </label>
-          <span class="field-role-hint">Short display text</span>
-        </div>
-        <div class="field-checkbox-row">
-          <input type="checkbox" id="field-description" class="field-description">
-          <label for="field-description">
-            <span class="field-dot description"></span>
+          <label class="field-pill description" id="pill-description">
+            <input type="checkbox" id="field-description">
+            <span class="pill-dot description"></span>
             Description
           </label>
-          <span class="field-role-hint">Longer prose</span>
         </div>
-      </div>
 
-      <div class="checkbox-row">
-        <input type="checkbox" id="overwrite-existing">
-        <label for="overwrite-existing">Include images with existing annotations</label>
-      </div>
-
-      <div class="actions-row">
-        <button class="btn btn-primary" id="btn-generate-selection" onclick="handleGenerate('selection')">
-          &#x2726; Selection
-        </button>
-        <button class="btn btn-brand" id="btn-generate-page" onclick="handleGenerate('page')">
-          &#x2B21; Scan Page
-        </button>
-      </div>
-
-
-    </div>
-
-    <!-- ===== Results Tab ===== -->
-    <div id="tab-results" class="tab-panel">
-      <div id="results-empty" class="empty-state">
-        <div class="icon">&#x1F4DD;</div>
-        <p>No results yet. Generate from the Generate tab to see previews here.</p>
-      </div>
-
-      <div id="results-area" style="display:none;">
-        <div class="results-header">
-          <div>
-            <h3>Preview</h3>
-            <div class="results-summary" id="results-summary"></div>
+        <!-- Action row -->
+        <div class="controls-row">
+          <div class="generate-buttons">
+            <button class="btn btn-primary" id="btn-generate-selection" onclick="handleGenerate('selection')">
+              &#x2726; Selection
+            </button>
+            <button class="btn btn-brand" id="btn-generate-page" onclick="handleGenerate('page')">
+              &#x2B21; Scan Page
+            </button>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-apply-all" onclick="handleApplyAll()">Apply All</button>
+
         </div>
-        <div id="results-list"></div>
+      </div>
+
+      <!-- Scrollable results -->
+      <div id="generate-scroll">
+        <!-- Annotations read-back from selection -->
+        <div id="selection-annotations">
+          <div class="sel-ann-header">Current Annotations</div>
+          <div id="sel-ann-list"></div>
+        </div>
+
+        <div id="idle-message">
+          <p>Select image layers and click Selection, or scan the entire page.</p>
+        </div>
+
+        <div id="results-area">
+          <div class="sel-ann-header">Generated Results</div>
+          <div class="results-apply-all" id="results-apply-bar">
+            <button class="btn btn-primary" id="btn-apply-all" onclick="handleApplyAll()">Apply All</button>
+            <div class="summary" id="results-summary"></div>
+          </div>
+          <div id="results-list"></div>
+        </div>
       </div>
     </div>
 
     <!-- ===== Settings Tab ===== -->
     <div id="tab-settings" class="tab-panel">
-      <div class="field-group">
-        <label for="api-key">API Key</label>
-        <input type="password" id="api-key" placeholder="Enter your Visionati API key" autocomplete="off">
-        <div id="key-status" class="key-status"></div>
-      </div>
+      <div class="settings-scroll">
+        <div class="first-run-banner" id="first-run-banner">
+          Enter your Visionati API key to get started. Get one at <a href="https://visionati.com" target="_blank" style="color:var(--visionati-orange);font-weight:600;text-decoration:none;">visionati.com</a>
+        </div>
 
-      <div class="field-group">
-        <label for="backend-select">AI Model</label>
-        <select id="backend-select">
-          <option value="gemini">Gemini</option>
-          <option value="openai">OpenAI</option>
-          <option value="claude">Claude</option>
-          <option value="grok">Grok</option>
-          <option value="jinaai">Jina AI</option>
-          <option value="llava">LLaVA</option>
-          <option value="bakllava">BakLLaVA</option>
-        </select>
-      </div>
+        <div class="field-group">
+          <label for="api-key">API Key</label>
+          <input type="password" id="api-key" placeholder="Enter your Visionati API key" autocomplete="off">
+          <div id="key-status" class="key-status"></div>
+        </div>
 
-      <div class="field-group">
-        <label for="language-select">Language</label>
-        <select id="language-select">
-          <option value="Abkhazian">Abkhazian</option>
-          <option value="Afar">Afar</option>
-          <option value="Afrikaans">Afrikaans</option>
-          <option value="Albanian">Albanian</option>
-          <option value="Amharic">Amharic</option>
-          <option value="Arabic">Arabic</option>
-          <option value="Aragonese">Aragonese</option>
-          <option value="Armenian">Armenian</option>
-          <option value="Assamese">Assamese</option>
-          <option value="Aymara">Aymara</option>
-          <option value="Azerbaijani">Azerbaijani</option>
-          <option value="Bashkir">Bashkir</option>
-          <option value="Basque">Basque</option>
-          <option value="Bengali (Bangla)">Bengali (Bangla)</option>
-          <option value="Bhutani">Bhutani</option>
-          <option value="Bihari">Bihari</option>
-          <option value="Bislama">Bislama</option>
-          <option value="Breton">Breton</option>
-          <option value="Bulgarian">Bulgarian</option>
-          <option value="Burmese">Burmese</option>
-          <option value="Byelorussian (Belarusian)">Byelorussian (Belarusian)</option>
-          <option value="Cambodian">Cambodian</option>
-          <option value="Catalan">Catalan</option>
-          <option value="Cherokee">Cherokee</option>
-          <option value="Chewa">Chewa</option>
-          <option value="Chinese">Chinese</option>
-          <option value="Chinese (Simplified)">Chinese (Simplified)</option>
-          <option value="Chinese (Traditional)">Chinese (Traditional)</option>
-          <option value="Corsican">Corsican</option>
-          <option value="Croatian">Croatian</option>
-          <option value="Czech">Czech</option>
-          <option value="Danish">Danish</option>
-          <option value="Divehi">Divehi</option>
-          <option value="Dutch">Dutch</option>
-          <option value="Edo">Edo</option>
-          <option value="English" selected>English</option>
-          <option value="Esperanto">Esperanto</option>
-          <option value="Estonian">Estonian</option>
-          <option value="Faeroese">Faeroese</option>
-          <option value="Farsi">Farsi</option>
-          <option value="Fiji">Fiji</option>
-          <option value="Finnish">Finnish</option>
-          <option value="French">French</option>
-          <option value="Frisian">Frisian</option>
-          <option value="Fulfulde">Fulfulde</option>
-          <option value="Galician">Galician</option>
-          <option value="Gaelic (Scottish)">Gaelic (Scottish)</option>
-          <option value="Gaelic (Manx)">Gaelic (Manx)</option>
-          <option value="Georgian">Georgian</option>
-          <option value="German">German</option>
-          <option value="Greek">Greek</option>
-          <option value="Greenlandic">Greenlandic</option>
-          <option value="Guarani">Guarani</option>
-          <option value="Gujarati">Gujarati</option>
-          <option value="Haitian Creole">Haitian Creole</option>
-          <option value="Hausa">Hausa</option>
-          <option value="Hawaiian">Hawaiian</option>
-          <option value="Hebrew">Hebrew</option>
-          <option value="Hindi">Hindi</option>
-          <option value="Hungarian">Hungarian</option>
-          <option value="Icelandic">Icelandic</option>
-          <option value="Ido">Ido</option>
-          <option value="Igbo">Igbo</option>
-          <option value="Indonesian">Indonesian</option>
-          <option value="Interlingua">Interlingua</option>
-          <option value="Interlingue">Interlingue</option>
-          <option value="Inuktitut">Inuktitut</option>
-          <option value="Inupiak">Inupiak</option>
-          <option value="Irish">Irish</option>
-          <option value="Italian">Italian</option>
-          <option value="Japanese">Japanese</option>
-          <option value="Javanese">Javanese</option>
-          <option value="Kannada">Kannada</option>
-          <option value="Kanuri">Kanuri</option>
-          <option value="Kashmiri">Kashmiri</option>
-          <option value="Kazakh">Kazakh</option>
-          <option value="Kinyarwanda (Ruanda)">Kinyarwanda (Ruanda)</option>
-          <option value="Kirghiz">Kirghiz</option>
-          <option value="Kirundi (Rundi)">Kirundi (Rundi)</option>
-          <option value="Konkani">Konkani</option>
-          <option value="Korean">Korean</option>
-          <option value="Kurdish">Kurdish</option>
-          <option value="Laothian">Laothian</option>
-          <option value="Latin">Latin</option>
-          <option value="Latvian (Lettish)">Latvian (Lettish)</option>
-          <option value="Limburgish (Limburger)">Limburgish (Limburger)</option>
-          <option value="Lingala">Lingala</option>
-          <option value="Lithuanian">Lithuanian</option>
-          <option value="Macedonian">Macedonian</option>
-          <option value="Malagasy">Malagasy</option>
-          <option value="Malay">Malay</option>
-          <option value="Malayalam">Malayalam</option>
-          <option value="Maltese">Maltese</option>
-          <option value="Maori">Maori</option>
-          <option value="Marathi">Marathi</option>
-          <option value="Moldavian">Moldavian</option>
-          <option value="Mongolian">Mongolian</option>
-          <option value="Nauru">Nauru</option>
-          <option value="Nepali">Nepali</option>
-          <option value="Norwegian">Norwegian</option>
-          <option value="Occitan">Occitan</option>
-          <option value="Oriya">Oriya</option>
-          <option value="Oromo (Afaan Oromo)">Oromo (Afaan Oromo)</option>
-          <option value="Papiamentu">Papiamentu</option>
-          <option value="Pashto (Pushto)">Pashto (Pushto)</option>
-          <option value="Polish">Polish</option>
-          <option value="Portuguese">Portuguese</option>
-          <option value="Punjabi">Punjabi</option>
-          <option value="Quechua">Quechua</option>
-          <option value="Rhaeto-Romance">Rhaeto-Romance</option>
-          <option value="Romanian">Romanian</option>
-          <option value="Russian">Russian</option>
-          <option value="Samoan">Samoan</option>
-          <option value="Sangro">Sangro</option>
-          <option value="Sanskrit">Sanskrit</option>
-          <option value="Serbian">Serbian</option>
-          <option value="Serbo-Croatian">Serbo-Croatian</option>
-          <option value="Sesotho">Sesotho</option>
-          <option value="Setswana">Setswana</option>
-          <option value="Shona">Shona</option>
-          <option value="Sichuan Yi">Sichuan Yi</option>
-          <option value="Sindhi">Sindhi</option>
-          <option value="Sinhalese">Sinhalese</option>
-          <option value="Siswati">Siswati</option>
-          <option value="Slovak">Slovak</option>
-          <option value="Slovenian">Slovenian</option>
-          <option value="Somali">Somali</option>
-          <option value="Spanish">Spanish</option>
-          <option value="Sundanese">Sundanese</option>
-          <option value="Swahili (Kiswahili)">Swahili (Kiswahili)</option>
-          <option value="Swedish">Swedish</option>
-          <option value="Syriac">Syriac</option>
-          <option value="Tagalog">Tagalog</option>
-          <option value="Tajik">Tajik</option>
-          <option value="Tamazight">Tamazight</option>
-          <option value="Tamil">Tamil</option>
-          <option value="Tatar">Tatar</option>
-          <option value="Telugu">Telugu</option>
-          <option value="Thai">Thai</option>
-          <option value="Tibetan">Tibetan</option>
-          <option value="Tigrinya">Tigrinya</option>
-          <option value="Tonga">Tonga</option>
-          <option value="Tsonga">Tsonga</option>
-          <option value="Turkish">Turkish</option>
-          <option value="Turkmen">Turkmen</option>
-          <option value="Twi">Twi</option>
-          <option value="Uighur">Uighur</option>
-          <option value="Ukrainian">Ukrainian</option>
-          <option value="Urdu">Urdu</option>
-          <option value="Uzbek">Uzbek</option>
-          <option value="Venda">Venda</option>
-          <option value="Vietnamese">Vietnamese</option>
-          <option value="Volapük">Volapük</option>
-          <option value="Wallon">Wallon</option>
-          <option value="Welsh">Welsh</option>
-          <option value="Wolof">Wolof</option>
-          <option value="Xhosa">Xhosa</option>
-          <option value="Yiddish yi">Yiddish yi</option>
-          <option value="Yoruba">Yoruba</option>
-          <option value="Zulu">Zulu</option>
-        </select>
-      </div>
+        <div class="field-group">
+          <label for="backend-select">AI Model</label>
+          <select id="backend-select">
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="claude">Claude</option>
+            <option value="grok">Grok</option>
+            <option value="jinaai">Jina AI</option>
+            <option value="llava">LLaVA</option>
+            <option value="bakllava">BakLLaVA</option>
+          </select>
+        </div>
 
-      <div class="field-group">
-        <label for="custom-prompt">Custom Prompt <span style="font-weight:400;text-transform:none;">(optional, overrides all field roles)</span></label>
-        <textarea id="custom-prompt" placeholder="e.g. Describe this image for a visually impaired user, focusing on the key visual elements..."></textarea>
-        <div class="hint">Leave empty to use each field's default role. When set, this prompt is used for all fields.</div>
-      </div>
+        <div class="field-group">
+          <label for="language-select">Language</label>
+          <select id="language-select">
+            <option value="Abkhazian">Abkhazian</option>
+            <option value="Afar">Afar</option>
+            <option value="Afrikaans">Afrikaans</option>
+            <option value="Albanian">Albanian</option>
+            <option value="Amharic">Amharic</option>
+            <option value="Arabic">Arabic</option>
+            <option value="Aragonese">Aragonese</option>
+            <option value="Armenian">Armenian</option>
+            <option value="Assamese">Assamese</option>
+            <option value="Aymara">Aymara</option>
+            <option value="Azerbaijani">Azerbaijani</option>
+            <option value="Bashkir">Bashkir</option>
+            <option value="Basque">Basque</option>
+            <option value="Bengali (Bangla)">Bengali (Bangla)</option>
+            <option value="Bhutani">Bhutani</option>
+            <option value="Bihari">Bihari</option>
+            <option value="Bislama">Bislama</option>
+            <option value="Breton">Breton</option>
+            <option value="Bulgarian">Bulgarian</option>
+            <option value="Burmese">Burmese</option>
+            <option value="Byelorussian (Belarusian)">Byelorussian (Belarusian)</option>
+            <option value="Cambodian">Cambodian</option>
+            <option value="Catalan">Catalan</option>
+            <option value="Cherokee">Cherokee</option>
+            <option value="Chewa">Chewa</option>
+            <option value="Chinese">Chinese</option>
+            <option value="Chinese (Simplified)">Chinese (Simplified)</option>
+            <option value="Chinese (Traditional)">Chinese (Traditional)</option>
+            <option value="Corsican">Corsican</option>
+            <option value="Croatian">Croatian</option>
+            <option value="Czech">Czech</option>
+            <option value="Danish">Danish</option>
+            <option value="Divehi">Divehi</option>
+            <option value="Dutch">Dutch</option>
+            <option value="Edo">Edo</option>
+            <option value="English" selected>English</option>
+            <option value="Esperanto">Esperanto</option>
+            <option value="Estonian">Estonian</option>
+            <option value="Faeroese">Faeroese</option>
+            <option value="Farsi">Farsi</option>
+            <option value="Fiji">Fiji</option>
+            <option value="Finnish">Finnish</option>
+            <option value="French">French</option>
+            <option value="Frisian">Frisian</option>
+            <option value="Fulfulde">Fulfulde</option>
+            <option value="Galician">Galician</option>
+            <option value="Gaelic (Scottish)">Gaelic (Scottish)</option>
+            <option value="Gaelic (Manx)">Gaelic (Manx)</option>
+            <option value="Georgian">Georgian</option>
+            <option value="German">German</option>
+            <option value="Greek">Greek</option>
+            <option value="Greenlandic">Greenlandic</option>
+            <option value="Guarani">Guarani</option>
+            <option value="Gujarati">Gujarati</option>
+            <option value="Haitian Creole">Haitian Creole</option>
+            <option value="Hausa">Hausa</option>
+            <option value="Hawaiian">Hawaiian</option>
+            <option value="Hebrew">Hebrew</option>
+            <option value="Hindi">Hindi</option>
+            <option value="Hungarian">Hungarian</option>
+            <option value="Icelandic">Icelandic</option>
+            <option value="Ido">Ido</option>
+            <option value="Igbo">Igbo</option>
+            <option value="Indonesian">Indonesian</option>
+            <option value="Interlingua">Interlingua</option>
+            <option value="Interlingue">Interlingue</option>
+            <option value="Inuktitut">Inuktitut</option>
+            <option value="Inupiak">Inupiak</option>
+            <option value="Irish">Irish</option>
+            <option value="Italian">Italian</option>
+            <option value="Japanese">Japanese</option>
+            <option value="Javanese">Javanese</option>
+            <option value="Kannada">Kannada</option>
+            <option value="Kanuri">Kanuri</option>
+            <option value="Kashmiri">Kashmiri</option>
+            <option value="Kazakh">Kazakh</option>
+            <option value="Kinyarwanda (Ruanda)">Kinyarwanda (Ruanda)</option>
+            <option value="Kirghiz">Kirghiz</option>
+            <option value="Kirundi (Rundi)">Kirundi (Rundi)</option>
+            <option value="Konkani">Konkani</option>
+            <option value="Korean">Korean</option>
+            <option value="Kurdish">Kurdish</option>
+            <option value="Laothian">Laothian</option>
+            <option value="Latin">Latin</option>
+            <option value="Latvian (Lettish)">Latvian (Lettish)</option>
+            <option value="Limburgish (Limburger)">Limburgish (Limburger)</option>
+            <option value="Lingala">Lingala</option>
+            <option value="Lithuanian">Lithuanian</option>
+            <option value="Macedonian">Macedonian</option>
+            <option value="Malagasy">Malagasy</option>
+            <option value="Malay">Malay</option>
+            <option value="Malayalam">Malayalam</option>
+            <option value="Maltese">Maltese</option>
+            <option value="Maori">Maori</option>
+            <option value="Marathi">Marathi</option>
+            <option value="Moldavian">Moldavian</option>
+            <option value="Mongolian">Mongolian</option>
+            <option value="Nauru">Nauru</option>
+            <option value="Nepali">Nepali</option>
+            <option value="Norwegian">Norwegian</option>
+            <option value="Occitan">Occitan</option>
+            <option value="Oriya">Oriya</option>
+            <option value="Oromo (Afaan Oromo)">Oromo (Afaan Oromo)</option>
+            <option value="Papiamentu">Papiamentu</option>
+            <option value="Pashto (Pushto)">Pashto (Pushto)</option>
+            <option value="Polish">Polish</option>
+            <option value="Portuguese">Portuguese</option>
+            <option value="Punjabi">Punjabi</option>
+            <option value="Quechua">Quechua</option>
+            <option value="Rhaeto-Romance">Rhaeto-Romance</option>
+            <option value="Romanian">Romanian</option>
+            <option value="Russian">Russian</option>
+            <option value="Samoan">Samoan</option>
+            <option value="Sangro">Sangro</option>
+            <option value="Sanskrit">Sanskrit</option>
+            <option value="Serbian">Serbian</option>
+            <option value="Serbo-Croatian">Serbo-Croatian</option>
+            <option value="Sesotho">Sesotho</option>
+            <option value="Setswana">Setswana</option>
+            <option value="Shona">Shona</option>
+            <option value="Sichuan Yi">Sichuan Yi</option>
+            <option value="Sindhi">Sindhi</option>
+            <option value="Sinhalese">Sinhalese</option>
+            <option value="Siswati">Siswati</option>
+            <option value="Slovak">Slovak</option>
+            <option value="Slovenian">Slovenian</option>
+            <option value="Somali">Somali</option>
+            <option value="Spanish">Spanish</option>
+            <option value="Sundanese">Sundanese</option>
+            <option value="Swahili (Kiswahili)">Swahili (Kiswahili)</option>
+            <option value="Swedish">Swedish</option>
+            <option value="Syriac">Syriac</option>
+            <option value="Tagalog">Tagalog</option>
+            <option value="Tajik">Tajik</option>
+            <option value="Tamazight">Tamazight</option>
+            <option value="Tamil">Tamil</option>
+            <option value="Tatar">Tatar</option>
+            <option value="Telugu">Telugu</option>
+            <option value="Thai">Thai</option>
+            <option value="Tibetan">Tibetan</option>
+            <option value="Tigrinya">Tigrinya</option>
+            <option value="Tonga">Tonga</option>
+            <option value="Tsonga">Tsonga</option>
+            <option value="Turkish">Turkish</option>
+            <option value="Turkmen">Turkmen</option>
+            <option value="Twi">Twi</option>
+            <option value="Uighur">Uighur</option>
+            <option value="Ukrainian">Ukrainian</option>
+            <option value="Urdu">Urdu</option>
+            <option value="Uzbek">Uzbek</option>
+            <option value="Venda">Venda</option>
+            <option value="Vietnamese">Vietnamese</option>
+            <option value="Volapük">Volapük</option>
+            <option value="Wallon">Wallon</option>
+            <option value="Welsh">Welsh</option>
+            <option value="Wolof">Wolof</option>
+            <option value="Xhosa">Xhosa</option>
+            <option value="Yiddish yi">Yiddish yi</option>
+            <option value="Yoruba">Yoruba</option>
+            <option value="Zulu">Zulu</option>
+          </select>
+        </div>
 
-      <button class="btn btn-primary" id="btn-save-settings" onclick="handleSaveSettings()">Save Settings</button>
+        <div class="field-group">
+          <label for="custom-prompt">Custom Prompt <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+          <textarea class="settings-textarea" id="custom-prompt" placeholder="Overrides all field roles when set..."></textarea>
+          <div class="hint">Leave empty to use each field's default. When set, this prompt is used for all fields.</div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-settings" onclick="handleSaveSettings()">Save Settings</button>
+      </div>
     </div>
 
-    <!-- Progress Bar -->
+    <!-- Progress bar -->
     <div id="progress-container" class="progress-bar-container">
       <div class="progress-bar">
         <div id="progress-fill" class="progress-bar-fill"></div>
       </div>
     </div>
 
-    <!-- Status Bar -->
+    <!-- Status bar -->
     <div id="status-bar">
       <div class="spinner"></div>
       <span id="status-text">Ready</span>
@@ -875,11 +999,12 @@
 // State
 // ============================================================================
 
-var currentResults = []; // Array of { nodeId, nodeName, hasExistingAnnotation, fields: [{ field, description, backend }] }
-var appliedFields = {}; // { "nodeId:field": true }
+var currentResults = [];
+var appliedFields = {};
 var isProcessing = false;
+var resultsCache = {};
+var currentSelectionKey = '';
 
-// Field type labels and CSS classes
 var FIELD_META = {
   alt_text:    { label: 'Alt Text',    cssClass: 'alt-text' },
   caption:     { label: 'Caption',     cssClass: 'caption' },
@@ -894,21 +1019,19 @@ var els = {
   tabs: document.querySelectorAll('.tab'),
   tabPanels: {
     generate: document.getElementById('tab-generate'),
-    results: document.getElementById('tab-results'),
     settings: document.getElementById('tab-settings'),
   },
   errorBanner: document.getElementById('error-banner'),
   errorMessage: document.getElementById('error-message'),
-  generateEmpty: document.getElementById('generate-empty'),
-  resultsEmpty: document.getElementById('results-empty'),
+  idleMessage: document.getElementById('idle-message'),
   resultsArea: document.getElementById('results-area'),
   resultsList: document.getElementById('results-list'),
   resultsSummary: document.getElementById('results-summary'),
   btnGenerateSelection: document.getElementById('btn-generate-selection'),
   btnGeneratePage: document.getElementById('btn-generate-page'),
   btnApplyAll: document.getElementById('btn-apply-all'),
+  resultsApplyBar: document.getElementById('results-apply-bar'),
   btnSaveSettings: document.getElementById('btn-save-settings'),
-  overwriteExisting: document.getElementById('overwrite-existing'),
   statusBar: document.getElementById('status-bar'),
   statusText: document.getElementById('status-text'),
   progressContainer: document.getElementById('progress-container'),
@@ -918,9 +1041,15 @@ var els = {
   languageSelect: document.getElementById('language-select'),
   customPrompt: document.getElementById('custom-prompt'),
   keyStatus: document.getElementById('key-status'),
+  firstRunBanner: document.getElementById('first-run-banner'),
+  selectionAnnotations: document.getElementById('selection-annotations'),
+  selAnnList: document.getElementById('sel-ann-list'),
   fieldAltText: document.getElementById('field-alt-text'),
   fieldCaption: document.getElementById('field-caption'),
   fieldDescription: document.getElementById('field-description'),
+  pillAltText: document.getElementById('pill-alt-text'),
+  pillCaption: document.getElementById('pill-caption'),
+  pillDescription: document.getElementById('pill-description'),
 };
 
 // ============================================================================
@@ -943,11 +1072,36 @@ function switchTab(tabName) {
 }
 
 // ============================================================================
+// Field Pills
+// ============================================================================
+
+function setupPill(pill, checkbox) {
+  checkbox.addEventListener('change', function() {
+    pill.classList.toggle('checked', checkbox.checked);
+  });
+}
+
+setupPill(els.pillAltText, els.fieldAltText);
+setupPill(els.pillCaption, els.fieldCaption);
+setupPill(els.pillDescription, els.fieldDescription);
+
+function getSelectedFields() {
+  var fields = [];
+  if (els.fieldAltText.checked) fields.push('alt_text');
+  if (els.fieldCaption.checked) fields.push('caption');
+  if (els.fieldDescription.checked) fields.push('description');
+  return fields;
+}
+
+// ============================================================================
 // Error Handling
 // ============================================================================
 
-function showError(message) {
-  els.errorMessage.textContent = message;
+function showError(messageOrArray) {
+  var messages = Array.isArray(messageOrArray) ? messageOrArray : [messageOrArray];
+  els.errorMessage.innerHTML = messages.map(function(m) {
+    return '<div>' + escH(m) + '</div>';
+  }).join('');
   els.errorBanner.classList.add('visible');
 }
 
@@ -983,28 +1137,19 @@ function setProcessing(processing) {
 }
 
 // ============================================================================
-// Fields
-// ============================================================================
-
-function getSelectedFields() {
-  var fields = [];
-  if (els.fieldAltText.checked) fields.push('alt_text');
-  if (els.fieldCaption.checked) fields.push('caption');
-  if (els.fieldDescription.checked) fields.push('description');
-  return fields;
-}
-
-
-
-// ============================================================================
 // Settings
 // ============================================================================
 
 function populateSettings(settings) {
   if (settings.apiKey) {
     els.apiKey.value = settings.apiKey;
-    els.keyStatus.textContent = 'API key loaded from storage';
+    els.keyStatus.textContent = 'API key loaded';
     els.keyStatus.className = 'key-status valid';
+    els.firstRunBanner.classList.remove('visible');
+  } else {
+    // No API key — first run experience
+    els.firstRunBanner.classList.add('visible');
+    switchTab('settings');
   }
   if (settings.backend) els.backendSelect.value = settings.backend;
   if (settings.language) els.languageSelect.value = settings.language;
@@ -1024,12 +1169,14 @@ function handleSaveSettings() {
   var settings = getSettingsFromForm();
   if (!settings.apiKey) {
     showError('API key is required.');
-    switchTab('settings');
     return;
   }
   sendToSandbox({ type: 'save-settings', settings: settings });
   els.keyStatus.textContent = 'Settings saved';
   els.keyStatus.className = 'key-status valid';
+  els.firstRunBanner.classList.remove('visible');
+  // Switch to generate tab after saving — user is ready to go
+  switchTab('generate');
 }
 
 // ============================================================================
@@ -1042,79 +1189,112 @@ function handleGenerate(source) {
 
   var settings = getSettingsFromForm();
   if (!settings.apiKey) {
-    showError('API key is required. Go to Settings and enter your Visionati API key.');
+    showError('No API key. Go to Settings to add one.');
     return;
   }
 
   var fields = getSelectedFields();
   if (fields.length === 0) {
-    showError('Select at least one field to generate (Alt Text, Caption, or Description).');
+    showError('Select at least one field.');
     return;
   }
 
+  // Auto-save settings
   sendToSandbox({ type: 'save-settings', settings: settings });
 
   setProcessing(true);
   setStatus('Starting...', true);
 
-  currentResults = [];
-  appliedFields = {};
-  renderResults();
-
-  var overwrite = els.overwriteExisting.checked;
   var mappedSource = source === 'page' ? 'page' : 'selection';
-  sendToSandbox({ type: 'generate', source: mappedSource, fields: fields, overwrite: overwrite });
+  sendToSandbox({ type: 'generate', source: mappedSource, fields: fields });
 }
 
 // ============================================================================
-// Applied State Helpers
+// Applied State
 // ============================================================================
 
-function fieldKey(nodeId, field) {
-  return nodeId + ':' + field;
-}
+function fieldKey(nodeId, field) { return nodeId + ':' + field; }
+function isFieldApplied(nodeId, field) { return !!appliedFields[fieldKey(nodeId, field)]; }
+function markFieldApplied(nodeId, field) { appliedFields[fieldKey(nodeId, field)] = true; }
 
-function isFieldApplied(nodeId, field) {
-  return !!appliedFields[fieldKey(nodeId, field)];
-}
-
-function markFieldApplied(nodeId, field) {
-  appliedFields[fieldKey(nodeId, field)] = true;
-}
-
-function isNodeFullyApplied(nodeResult) {
-  return nodeResult.fields.every(function(f) {
-    return isFieldApplied(nodeResult.nodeId, f.field);
-  });
+function isNodeFullyApplied(nr) {
+  return nr.fields.every(function(f) { return isFieldApplied(nr.nodeId, f.field); });
 }
 
 function allResultsApplied() {
-  return currentResults.every(function(nr) { return isNodeFullyApplied(nr); });
+  return currentResults.length > 0 && currentResults.every(function(nr) { return isNodeFullyApplied(nr); });
 }
 
 function countPendingFields() {
-  var count = 0;
+  var n = 0;
   currentResults.forEach(function(nr) {
-    nr.fields.forEach(function(f) {
-      if (!isFieldApplied(nr.nodeId, f.field)) count++;
-    });
+    nr.fields.forEach(function(f) { if (!isFieldApplied(nr.nodeId, f.field)) n++; });
   });
-  return count;
+  return n;
 }
 
 // ============================================================================
 // Results Rendering
 // ============================================================================
 
+function mergeResults(newResults) {
+  // Build a lookup of existing nodes by nodeId
+  var existingMap = {};
+  currentResults.forEach(function(nr) { existingMap[nr.nodeId] = nr; });
+
+  newResults.forEach(function(nr) {
+    var existing = existingMap[nr.nodeId];
+    if (existing) {
+      // Merge new fields into existing node — replace same field type, add new ones
+      nr.fields.forEach(function(newField) {
+        // Remove any previously applied marker for this field (it's being regenerated)
+        var key = fieldKey(nr.nodeId, newField.field);
+        delete appliedFields[key];
+
+        // Replace existing field of same type, or add new
+        var replaced = false;
+        existing.fields = existing.fields.map(function(ef) {
+          if (ef.field === newField.field) {
+            replaced = true;
+            return newField;
+          }
+          return ef;
+        });
+        if (!replaced) {
+          existing.fields.push(newField);
+        }
+      });
+    } else {
+      // New node — add it and clear any stale applied state for its fields
+      nr.fields.forEach(function(f) {
+        delete appliedFields[fieldKey(nr.nodeId, f.field)];
+      });
+      currentResults.push(nr);
+      existingMap[nr.nodeId] = nr;
+    }
+  });
+}
+
 function renderResults() {
   if (currentResults.length === 0) {
-    els.resultsEmpty.style.display = '';
-    els.resultsArea.style.display = 'none';
+    els.idleMessage.style.display = '';
+    els.resultsArea.classList.remove('visible');
     return;
   }
 
-  els.resultsEmpty.style.display = 'none';
-  els.resultsArea.style.display = '';
+  // Preserve editing state before re-render so in-progress edits survive
+  var editingState = {};
+  var editingEntries = els.resultsList.querySelectorAll('.field-entry.editing');
+  editingEntries.forEach(function(entry) {
+    var id = entry.id;
+    var ta = entry.querySelector('.field-edit-textarea');
+    if (id && ta) {
+      editingState[id] = ta.value;
+    }
+  });
+
+  els.idleMessage.style.display = 'none';
+  els.resultsArea.classList.add('visible');
 
   // Summary
   var totalFields = 0;
@@ -1125,34 +1305,38 @@ function renderResults() {
       if (isFieldApplied(nr.nodeId, f.field)) appliedCount++;
     });
   });
-  els.resultsSummary.textContent = currentResults.length + ' image' + (currentResults.length !== 1 ? 's' : '') +
-    ', ' + totalFields + ' field' + (totalFields !== 1 ? 's' : '') +
-    (appliedCount > 0 ? ' (' + appliedCount + ' applied)' : '');
 
-  // Apply All button visibility
-  els.btnApplyAll.style.display = allResultsApplied() ? 'none' : '';
+  var summaryParts = ['<strong>' + currentResults.length + '</strong> image' + (currentResults.length !== 1 ? 's' : '')];
+  summaryParts.push('<strong>' + totalFields + '</strong> field' + (totalFields !== 1 ? 's' : ''));
+  if (appliedCount > 0) summaryParts.push('<strong>' + appliedCount + '</strong> applied');
+  els.resultsSummary.innerHTML = summaryParts.join(' &middot; ');
+
+  var allDone = allResultsApplied();
+  els.resultsApplyBar.style.display = allDone ? 'none' : '';
 
   var html = '';
 
   currentResults.forEach(function(nr) {
     var nodeApplied = isNodeFullyApplied(nr);
     var cardClass = 'node-card' + (nodeApplied ? ' all-applied' : '');
-    var pendingFieldsForNode = nr.fields.filter(function(f) { return !isFieldApplied(nr.nodeId, f.field); });
+    var pendingFields = nr.fields.filter(function(f) { return !isFieldApplied(nr.nodeId, f.field); });
 
-    html += '<div class="' + cardClass + '" data-node-id="' + escapeAttr(nr.nodeId) + '">';
+    html += '<div class="' + cardClass + '" data-node-id="' + esc(nr.nodeId) + '">';
 
-    // Node header
+    // Header
     html += '<div class="node-card-header">';
-    html += '<span class="node-name" title="' + escapeAttr(nr.nodeName) + '">' + escapeHtml(nr.nodeName) + '</span>';
+    if (nr.thumbnail) {
+      html += '<img class="node-thumb" src="' + esc(nr.thumbnail) + '" alt="' + esc(nr.nodeName) + '">';
+    }
+    html += '<span class="node-name" title="' + esc(nr.nodeName) + '">' + escH(nr.nodeName) + '</span>';
     html += '<div class="node-actions">';
-    if (!nodeApplied && pendingFieldsForNode.length > 1) {
-      html += '<button class="btn btn-primary btn-sm" onclick="handleApplyNode(\'' + escapeAttr(nr.nodeId) + '\')">Apply All Fields</button>';
+    if (!nodeApplied && pendingFields.length > 1) {
+      html += '<button class="btn btn-primary btn-sm" onclick="handleApplyNode(\'' + esc(nr.nodeId) + '\')">Apply All</button>';
     }
     if (!nodeApplied) {
-      html += '<button class="btn-danger-text" onclick="handleDiscardNode(\'' + escapeAttr(nr.nodeId) + '\')">Discard</button>';
+      html += '<button class="btn-text danger" onclick="handleDiscardNode(\'' + esc(nr.nodeId) + '\')">Discard</button>';
     }
-    html += '</div>';
-    html += '</div>';
+    html += '</div></div>';
 
     // Fields
     html += '<div class="node-card-body">';
@@ -1160,60 +1344,65 @@ function renderResults() {
       var fApplied = isFieldApplied(nr.nodeId, f.field);
       var meta = FIELD_META[f.field];
       var entryClass = 'field-entry' + (fApplied ? ' applied' : '');
-      var entryId = 'field-' + nr.nodeId + '-' + f.field;
+      var entryId = 'fe-' + nr.nodeId + '-' + f.field;
 
-      html += '<div class="' + entryClass + '" id="' + escapeAttr(entryId) + '" data-node-id="' + escapeAttr(nr.nodeId) + '" data-field="' + escapeAttr(f.field) + '">';
+      html += '<div class="' + entryClass + '" id="' + esc(entryId) + '">';
 
-      // Field header
       html += '<div class="field-entry-header">';
-      html += '<span class="field-badge ' + meta.cssClass + '">' + escapeHtml(meta.label) + '</span>';
+      html += '<span class="field-badge ' + meta.cssClass + '">' + escH(meta.label) + '</span>';
       if (fApplied) {
         html += '<span class="applied-badge">Applied</span>';
       } else {
-        html += '<span class="backend-label">' + escapeHtml(f.backend) + '</span>';
+        html += '<span class="backend-label">' + escH(f.backend) + '</span>';
       }
       html += '</div>';
 
-      // Description text + edit textarea
-      html += '<div class="field-description-text">' + escapeHtml(f.description) + '</div>';
-      html += '<textarea class="field-edit-textarea">' + escapeHtml(f.description) + '</textarea>';
+      var clickEdit = fApplied ? '' : ' onclick="handleEditField(\'' + esc(nr.nodeId) + '\',\'' + esc(f.field) + '\')"';
+      html += '<div class="field-description-text"' + clickEdit + '>' + escH(f.description) + '</div>';
+      html += '<textarea class="field-edit-textarea">' + escH(f.description) + '</textarea>';
 
-      // Actions
       html += '<div class="field-actions">';
       if (!fApplied) {
-        html += '<button class="btn btn-primary btn-sm" onclick="handleApplyField(\'' + escapeAttr(nr.nodeId) + '\',\'' + escapeAttr(f.field) + '\')">Apply</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="handleEditField(\'' + escapeAttr(nr.nodeId) + '\',\'' + escapeAttr(f.field) + '\')">Edit</button>';
-        html += '<span class="spacer"></span>';
-        html += '<button class="btn-danger-text" onclick="handleDiscardField(\'' + escapeAttr(nr.nodeId) + '\',\'' + escapeAttr(f.field) + '\')">Discard</button>';
+        html += '<button class="btn btn-primary btn-sm" onclick="handleApplyField(\'' + esc(nr.nodeId) + '\',\'' + esc(f.field) + '\')">Apply</button>';
+        if (nr.fields.length > 1) {
+          html += '<span class="spacer"></span>';
+          html += '<button class="btn-text danger" onclick="handleDiscardField(\'' + esc(nr.nodeId) + '\',\'' + esc(f.field) + '\')">Discard</button>';
+        }
       }
       html += '</div>';
 
-      html += '</div>'; // .field-entry
+      html += '</div>';
     });
-    html += '</div>'; // .node-card-body
-
-    html += '</div>'; // .node-card
+    html += '</div></div>';
   });
 
   els.resultsList.innerHTML = html;
+
+  // Restore editing state for entries that still exist and aren't now applied
+  Object.keys(editingState).forEach(function(id) {
+    var entry = document.getElementById(id);
+    if (entry && !entry.classList.contains('applied')) {
+      entry.classList.add('editing');
+      var ta = entry.querySelector('.field-edit-textarea');
+      if (ta) ta.value = editingState[id];
+    }
+  });
 }
 
 // ============================================================================
 // Result Actions
 // ============================================================================
 
-function getFieldEntryEl(nodeId, field) {
-  return document.getElementById('field-' + nodeId + '-' + field);
+function getFieldEntry(nodeId, field) {
+  return document.getElementById('fe-' + nodeId + '-' + field);
 }
 
 function getEditedDescription(nodeId, field) {
-  var entry = getFieldEntryEl(nodeId, field);
-  if (!entry) return null;
-  var textarea = entry.querySelector('.field-edit-textarea');
-  if (entry.classList.contains('editing') && textarea && textarea.value.trim()) {
-    return textarea.value.trim();
+  var entry = getFieldEntry(nodeId, field);
+  if (entry && entry.classList.contains('editing')) {
+    var ta = entry.querySelector('.field-edit-textarea');
+    if (ta && ta.value.trim()) return ta.value.trim();
   }
-  // Fall back to the result data
   var nr = currentResults.find(function(r) { return r.nodeId === nodeId; });
   if (!nr) return null;
   var f = nr.fields.find(function(ff) { return ff.field === field; });
@@ -1221,39 +1410,30 @@ function getEditedDescription(nodeId, field) {
 }
 
 function handleApplyField(nodeId, field) {
-  var description = getEditedDescription(nodeId, field);
-  if (!description) {
-    showError('Description cannot be empty.');
-    return;
-  }
-  // Update the stored description if edited
+  var desc = getEditedDescription(nodeId, field);
+  if (!desc) { showError('Description cannot be empty.'); return; }
   var nr = currentResults.find(function(r) { return r.nodeId === nodeId; });
   if (nr) {
     var f = nr.fields.find(function(ff) { return ff.field === field; });
-    if (f) f.description = description;
+    if (f) f.description = desc;
   }
-  sendToSandbox({ type: 'apply-field', nodeId: nodeId, field: field, description: description });
+  sendToSandbox({ type: 'apply-field', nodeId: nodeId, field: field, description: desc });
 }
 
 function handleEditField(nodeId, field) {
-  var entry = getFieldEntryEl(nodeId, field);
+  var entry = getFieldEntry(nodeId, field);
   if (!entry) return;
   entry.classList.toggle('editing');
   if (entry.classList.contains('editing')) {
-    var textarea = entry.querySelector('.field-edit-textarea');
-    if (textarea) {
-      textarea.focus();
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    }
+    var ta = entry.querySelector('.field-edit-textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }
 }
 
 function handleDiscardField(nodeId, field) {
-  // Remove this field from the node result
   var nr = currentResults.find(function(r) { return r.nodeId === nodeId; });
   if (nr) {
     nr.fields = nr.fields.filter(function(f) { return f.field !== field; });
-    // If no fields left, remove the entire node result
     if (nr.fields.length === 0) {
       currentResults = currentResults.filter(function(r) { return r.nodeId !== nodeId; });
     }
@@ -1271,46 +1451,35 @@ function handleDiscardNode(nodeId) {
 function handleApplyNode(nodeId) {
   var nr = currentResults.find(function(r) { return r.nodeId === nodeId; });
   if (!nr) return;
-
-  var pendingFields = [];
+  var pending = [];
   nr.fields.forEach(function(f) {
     if (!isFieldApplied(nr.nodeId, f.field)) {
-      var desc = getEditedDescription(nr.nodeId, f.field);
-      if (desc) {
-        f.description = desc;
-        pendingFields.push({ field: f.field, description: desc });
-      }
+      var d = getEditedDescription(nr.nodeId, f.field);
+      if (d) { f.description = d; pending.push({ field: f.field, description: d }); }
     }
   });
-
-  if (pendingFields.length === 0) return;
-  sendToSandbox({ type: 'apply-node', nodeId: nodeId, fields: pendingFields });
+  if (pending.length === 0) return;
+  sendToSandbox({ type: 'apply-node', nodeId: nodeId, fields: pending });
 }
 
 function handleApplyAll() {
   var nodes = [];
   currentResults.forEach(function(nr) {
-    var pendingFields = [];
+    var pending = [];
     nr.fields.forEach(function(f) {
       if (!isFieldApplied(nr.nodeId, f.field)) {
-        var desc = getEditedDescription(nr.nodeId, f.field);
-        if (desc) {
-          f.description = desc;
-          pendingFields.push({ field: f.field, description: desc });
-        }
+        var d = getEditedDescription(nr.nodeId, f.field);
+        if (d) { f.description = d; pending.push({ field: f.field, description: d }); }
       }
     });
-    if (pendingFields.length > 0) {
-      nodes.push({ nodeId: nr.nodeId, fields: pendingFields });
-    }
+    if (pending.length > 0) nodes.push({ nodeId: nr.nodeId, fields: pending });
   });
-
   if (nodes.length === 0) return;
   sendToSandbox({ type: 'apply-all', nodes: nodes });
 }
 
 // ============================================================================
-// PostMessage Communication
+// PostMessage
 // ============================================================================
 
 function sendToSandbox(message) {
@@ -1326,13 +1495,52 @@ window.onmessage = function(event) {
       populateSettings(msg.settings);
       break;
 
-    case 'auto-generate':
-      var source = msg.source === 'all-images' ? 'page' : 'selection';
-      setTimeout(function() { handleGenerate(source); }, 100);
+    case 'switch-tab':
+      switchTab(msg.tab);
       break;
 
-    case 'categories':
-      // Categories created on the sandbox side — no UI action needed
+    case 'auto-generate':
+      var src = msg.source === 'all-images' ? 'page' : 'selection';
+      setTimeout(function() { handleGenerate(src); }, 100);
+      break;
+
+    case 'selection-changed':
+      // Stash current results under the old selection key (if any)
+      if (currentResults.length > 0 && currentSelectionKey) {
+        resultsCache[currentSelectionKey] = {
+          results: currentResults,
+          applied: JSON.parse(JSON.stringify(appliedFields))
+        };
+      }
+
+      // Update selection key from the new selection's node IDs
+      var newIds = (msg.nodeIds || []).slice().sort();
+      currentSelectionKey = newIds.join(',');
+
+      // Try to restore cached results for this selection
+      var cached = resultsCache[currentSelectionKey];
+      if (cached) {
+        currentResults = cached.results;
+        appliedFields = cached.applied;
+        delete resultsCache[currentSelectionKey];
+      } else {
+        currentResults = [];
+        appliedFields = {};
+      }
+      renderResults();
+      dismissError();
+      if (!isProcessing) {
+        var p = countPendingFields();
+        if (currentResults.length > 0) {
+          setStatus(p === 0 ? 'All applied!' : p + ' pending', false);
+        } else {
+          setStatus('Ready', false);
+        }
+      }
+      break;
+
+    case 'selection-annotations':
+      renderSelectionAnnotations(msg.nodes || []);
       break;
 
     case 'status':
@@ -1341,93 +1549,209 @@ window.onmessage = function(event) {
 
     case 'progress':
       if (msg.phase === 'exporting') {
-        setStatus('Exporting image ' + msg.current + ' of ' + msg.total + '...', true);
+        setStatus('Exporting ' + msg.current + '/' + msg.total + '...', true);
         showProgress(msg.current, msg.total);
       } else if (msg.phase === 'polling') {
-        setStatus('Waiting for results (attempt ' + msg.current + '/' + msg.total + ')...', true);
+        setStatus('Processing images (' + msg.current + '/' + msg.total + ')...', true);
         showProgress(msg.current, msg.total);
       } else if (msg.phase === 'api-call') {
-        setStatus('Sending to Visionati API...', true);
-        showProgress(0, 1);
+        setStatus('Calling Visionati API...', true);
       }
       break;
 
     case 'results':
       setProcessing(false);
-      currentResults = msg.results || [];
-      appliedFields = {};
-
-      var totalFields = 0;
-      currentResults.forEach(function(nr) { totalFields += nr.fields.length; });
-      var fieldNames = (msg.fields || []).map(function(f) { return FIELD_META[f] ? FIELD_META[f].label : f; });
-      setStatus(
-        totalFields + ' result' + (totalFields !== 1 ? 's' : '') +
-        ' across ' + currentResults.length + ' image' + (currentResults.length !== 1 ? 's' : '') +
-        ' (' + fieldNames.join(', ') + ')',
-        false
-      );
-
+      mergeResults(msg.results || []);
+      var nf = 0;
+      currentResults.forEach(function(nr) { nf += nr.fields.length; });
+      var creditsText = (msg.credits !== undefined && msg.credits !== null) ? ' · ' + msg.credits + ' credits remaining' : '';
+      setStatus(nf + ' result' + (nf !== 1 ? 's' : '') + ' ready' + creditsText, false);
       renderResults();
-      switchTab('results');
+      // Show partial field errors
+      var fieldErrors = msg.fieldErrors || [];
+      if (fieldErrors.length > 0) {
+        var errMsgs = fieldErrors.map(function(e) { return e.message || 'Unknown error'; });
+        console.warn('[Visionati] Field errors:', errMsgs);
+        showError(errMsgs);
+      }
       break;
 
     case 'error':
       setProcessing(false);
       setStatus('Error', false);
-      showError(msg.message);
+      showError(msg.messages || msg.message);
       break;
 
     case 'field-applied':
       markFieldApplied(msg.nodeId, msg.field);
       renderResults();
-      var pending = countPendingFields();
-      if (pending === 0) {
-        setStatus('All annotations applied!', false);
-      } else {
-        setStatus(pending + ' field' + (pending !== 1 ? 's' : '') + ' remaining', false);
-      }
+      var p = countPendingFields();
+      setStatus(p === 0 ? 'All applied!' : p + ' remaining', false);
       break;
 
     case 'field-discarded':
-      // Already handled in handleDiscardField
-      break;
-
     case 'node-discarded':
-      // Already handled in handleDiscardNode
       break;
 
     case 'all-applied':
       setProcessing(false);
       var parts = [];
-      if (msg.applied > 0) parts.push('Applied to ' + msg.applied + ' image' + (msg.applied !== 1 ? 's' : ''));
+      if (msg.applied > 0) parts.push(msg.applied + ' image' + (msg.applied !== 1 ? 's' : '') + ' done');
       if (msg.failed > 0) parts.push(msg.failed + ' failed');
-      setStatus(parts.join('. ') + '.', false);
+      setStatus(parts.join(', '), false);
       renderResults();
       break;
   }
 };
 
 // ============================================================================
-// Utility Functions
+// Selection Annotations (read-back)
 // ============================================================================
 
-function escapeHtml(str) {
-  if (!str) return '';
-  var div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+var CATEGORY_LABEL_MAP = {
+  'Alt Text': 'cat-alt-text',
+  'Caption': 'cat-caption',
+  'Description': 'cat-description'
+};
+
+function renderSelectionAnnotations(nodes) {
+  if (!nodes || nodes.length === 0) {
+    els.selectionAnnotations.classList.remove('visible');
+    return;
+  }
+
+  // Preserve editing state before re-render so in-progress edits survive
+  var editingState = {};
+  var editingEntries = els.selAnnList.querySelectorAll('.sel-ann-entry.editing');
+  editingEntries.forEach(function(entry) {
+    var id = entry.id;
+    var ta = entry.querySelector('.sel-ann-edit-textarea');
+    if (id && ta) {
+      editingState[id] = ta.value;
+    }
+  });
+
+  els.selectionAnnotations.classList.add('visible');
+
+  var html = '';
+  nodes.forEach(function(node) {
+    html += '<div class="sel-ann-node">';
+    html += '<div class="sel-ann-node-header">';
+    html += '<span class="sel-ann-node-name" title="' + esc(node.nodeName) + '">' + escH(node.nodeName) + '</span>';
+    if (node.annotations.length > 1) {
+      html += '<button class="btn-text danger" onclick="handleRemoveAllAnnotations(\'' + escAttrJS(node.nodeId) + '\')">Remove All</button>';
+    }
+    html += '</div>';
+    node.annotations.forEach(function(ann, annIdx) {
+      var entryId = 'sa-' + node.nodeId + '-' + annIdx;
+      html += '<div class="sel-ann-entry" id="' + esc(entryId) + '">';
+      html += '<div class="sel-ann-content">';
+      var labelClass = CATEGORY_LABEL_MAP[ann.label] || '';
+      var labelText = ann.label || 'Annotation';
+      html += '<div class="sel-ann-label ' + labelClass + '">' + escH(labelText) + '</div>';
+      var text = ann.text || '';
+      text = text.replace(/^\*\*[A-Z\s]+\*\*\n?/, '');
+      html += '<div class="sel-ann-text" onclick="handleEditAnnotationStart(\'' + escAttrJS(entryId) + '\')">' + escH(text) + '</div>';
+      html += '<div class="sel-ann-edit-area">';
+      html += '<textarea class="sel-ann-edit-textarea">' + escH(text) + '</textarea>';
+      html += '<div class="sel-ann-edit-actions">';
+      html += '<button class="btn btn-primary btn-sm" onclick="handleEditAnnotationSave(\'' + escAttrJS(node.nodeId) + '\',\'' + escAttrJS(labelText) + '\',\'' + escAttrJS(entryId) + '\')">Save</button>';
+      html += '<button class="btn-text" onclick="handleEditAnnotationCancel(\'' + escAttrJS(entryId) + '\')">Cancel</button>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+      html += '<button class="sel-ann-remove" onclick="handleRemoveAnnotation(\'' + escAttrJS(node.nodeId) + '\',\'' + escAttrJS(labelText) + '\')" title="Remove">&times;</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+
+  els.selAnnList.innerHTML = html;
+
+  // Restore editing state for entries that still exist after re-render
+  Object.keys(editingState).forEach(function(id) {
+    var entry = document.getElementById(id);
+    if (entry) {
+      entry.classList.add('editing');
+      var ta = entry.querySelector('.sel-ann-edit-textarea');
+      if (ta) ta.value = editingState[id];
+    }
+  });
 }
 
-function escapeAttr(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// ============================================================================
+// Utilities
+// ============================================================================
+
+function escH(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/**
+ * Escape a value for embedding in a JS string inside an HTML onclick attribute.
+ * Two-layer encoding: JS string escaping first, then HTML attribute escaping.
+ */
+function escAttrJS(s) {
+  if (!s) return '';
+  // JS string escaping (backslash first, then quotes and control chars)
+  s = s.replace(/\\/g, '\\\\');
+  s = s.replace(/'/g, "\\'");
+  s = s.replace(/\n/g, '\\n');
+  s = s.replace(/\r/g, '\\r');
+  // HTML attribute escaping (so the value doesn't break the onclick="..." wrapper)
+  s = s.replace(/&/g, '&amp;');
+  s = s.replace(/</g, '&lt;');
+  s = s.replace(/>/g, '&gt;');
+  s = s.replace(/"/g, '&quot;');
+  return s;
 }
 
 // ============================================================================
-// Initialization
+// Init
 // ============================================================================
 
-sendToSandbox({ type: 'load-settings' });
+function handleRemoveAnnotation(nodeId, categoryLabel) {
+  sendToSandbox({ type: 'remove-annotation', nodeId: nodeId, categoryLabel: categoryLabel });
+}
+
+function handleRemoveAllAnnotations(nodeId) {
+  sendToSandbox({ type: 'remove-all-annotations', nodeId: nodeId });
+}
+
+function handleEditAnnotationStart(entryId) {
+  var entry = document.getElementById(entryId);
+  if (!entry || entry.classList.contains('editing')) return;
+  entry.classList.add('editing');
+  var ta = entry.querySelector('.sel-ann-edit-textarea');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+function handleEditAnnotationCancel(entryId) {
+  var entry = document.getElementById(entryId);
+  if (entry) entry.classList.remove('editing');
+}
+
+function handleEditAnnotationSave(nodeId, categoryLabel, entryId) {
+  var entry = document.getElementById(entryId);
+  if (!entry) return;
+  var ta = entry.querySelector('.sel-ann-edit-textarea');
+  if (!ta || !ta.value.trim()) { showError('Annotation text cannot be empty.'); return; }
+  // Exit editing mode on this entry so the re-render from sendSelectionAnnotations
+  // only preserves OTHER entries that are still being edited (not this one)
+  entry.classList.remove('editing');
+  sendToSandbox({ type: 'edit-annotation', nodeId: nodeId, categoryLabel: categoryLabel, newText: ta.value.trim() });
+}
+
+// Settings are sent proactively by the sandbox in showPluginUI(),
+// so no need to request them again from the UI side.
 
 </script>
 </body>

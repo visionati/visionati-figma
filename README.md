@@ -1,146 +1,125 @@
-# Visionati — Figma Plugin
+# Visionati
 
-AI-powered alt text, captions, and descriptions for Figma images. Select image layers (or scan the page), choose which fields to generate, preview the results, and write them as color-coded Figma annotations visible in both design mode and Dev Mode handoff.
+![Visionati](.figma-community/cover-1920x960.png)
+
+AI-powered alt text, captions, and descriptions for Figma images.
+
+Select image layers (or scan the entire page), choose which fields to generate, preview the results, and apply them as color-coded [Figma annotations](https://www.figma.com/plugin-docs/api/Annotation/) visible in both design mode and Dev Mode handoff.
+
+Powered by the [Visionati API](https://visionati.com). Choose from AI models by Anthropic, Google, OpenAI, xAI, and others to generate descriptions tuned to your needs.
 
 ## Features
 
-- **Three field types:** Alt Text (green), Caption (blue), Description (violet) — each written as a separate color-coded annotation
-- **7 AI models:** Gemini, OpenAI, Claude, Grok, Jina AI, LLaVA, BakLLaVA
-- **160+ languages**
-- **Custom prompts** that override field roles
-- **Batch processing:** select multiple images or scan the entire page
-- **Preview before apply:** review and edit generated text before writing annotations
-- **Per-field control:** apply, edit, or discard individual fields independently
-- **Figma Annotations API:** text is stored as first-party annotations with color-coded categories, visible in the design panel and Dev Mode
+- **Three Field Types:** Alt Text (green), Caption (blue), Description (violet). Each written as a separate color-coded annotation on the image node.
+- **Preview Before Apply:** Review and edit generated text before writing anything to the document. Apply, edit, or discard individual fields independently.
+- **Batch Processing:** Select multiple images or scan the entire page. Images are processed in parallel batches of 10.
+- **7 AI Models:** Gemini, OpenAI, Claude, Grok, Jina AI, LLaVA, BakLLaVA.
+- **160+ Languages:** Generate descriptions in any supported language.
+- **Custom Prompts:** Write your own instructions to override the default field roles.
+- **Annotation Management:** Select any node to see its existing annotations in the plugin. Edit text inline, remove individual annotations, or clear them all.
+- **Dev Mode Ready:** Annotations are visible during developer handoff with color-coded categories, so developers know which text is alt text, which is a caption, and which is a description.
 
 ## Fields
 
-Each field maps to a fixed Visionati role and gets its own annotation category:
+| Field | Color | Purpose |
+|-------|-------|---------|
+| Alt Text | Green | Concise, WCAG-compliant descriptions for accessibility |
+| Caption | Blue | Short display text for captions and labels |
+| Description | Violet | Longer prose descriptions |
 
-| Field | Role | Category Color | Purpose |
-|-------|------|----------------|---------|
-| Alt Text | `alttext` | Green | Concise, WCAG-compliant descriptions |
-| Caption | `caption` | Blue | Short display text |
-| Description | `general` | Violet | Longer prose descriptions |
-
-Select one or more fields per generation. Each selected field triggers a separate API call with its role. All fields for an image are written as separate annotations on the same node, organized by category.
+Select one or more fields per generation. Each field triggers a separate API call with the appropriate AI role.
 
 ## Prerequisites
 
-- [Figma desktop app](https://www.figma.com/downloads/) (plugins require the desktop app for development)
-- [Node.js](https://nodejs.org/) (for TypeScript compilation)
-- A [Visionati API key](https://visionati.com) (requires credits)
+- [Figma desktop app](https://www.figma.com/downloads/) (required for loading the plugin in development; published plugins work in the browser too)
+- A [Visionati API key](https://api.visionati.com/signup) (requires credits)
 
-## Setup
+## Installation
 
-```
-npm install
-npm run build
-```
+1. Download or clone this repository
+2. Open the Figma desktop app
+3. Go to **Plugins → Development → Import plugin from manifest**
+4. Select the `manifest.json` file from this directory
+5. The plugin appears under **Plugins → Development → Visionati**
 
-This compiles `code.ts` → `code.js` via the TypeScript compiler.
-
-## Load in Figma
-
-1. Open Figma desktop app
-2. Go to **Plugins → Development → Import plugin from manifest**
-3. Select the `manifest.json` file from this directory
-4. The plugin appears under **Plugins → Development → Visionati**
+No build step needed. `code.js` is committed and ready to use.
 
 ## Usage
 
-1. **Configure:** Run the plugin, go to the **Settings** tab, enter your Visionati API key, choose your preferred AI model and language. Click **Save Settings**.
-2. **Select fields:** On the **Generate** tab, check which fields you want: Alt Text, Caption, Description (at least one required).
-3. **Select images:** Select one or more layers/frames containing images on the canvas.
-4. **Generate:** Click **Selection** to process selected layers, or **Scan Page** to find all images on the page.
-5. **Preview:** The **Results** tab shows generated text grouped by image, with color-coded field badges. Edit any description before applying.
-6. **Apply:** Click **Apply** on individual fields, **Apply All Fields** on a single image, or **Apply All** for everything at once.
+### First Run
+
+1. Open the plugin from the **Plugins** menu
+2. The **Settings** tab opens automatically with a welcome banner
+3. Enter your Visionati API key
+4. Choose your preferred AI model and language
+5. Click **Save Settings** (switches to the Generate tab)
+
+### Generating Descriptions
+
+1. On the **Generate** tab, toggle which fields you want: Alt Text, Caption, Description (at least one required)
+2. Select one or more layers or frames containing images on the canvas
+3. Click **Selection** to process selected layers, or **Scan Page** to find and process all images on the current page
+4. Generated text appears grouped by image with color-coded field badges and a thumbnail preview
+5. Click the text to edit any description before applying
+
+### Applying Results
+
+- **Apply** on a single field to write just that annotation
+- **Apply All** on a node card to write all fields for that image
+- **Apply All** at the bottom to write everything at once
+- **Discard** to throw away a field you don't want
+
+### Managing Existing Annotations
+
+Select any node on the canvas to see its annotations in the **Current Annotations** section:
+
+- **Edit inline:** click the annotation text to open an editor
+- **Remove one:** click the × button to delete a single annotation
+- **Remove All:** clear every annotation from a node
 
 ### Menu Commands
 
-- **Generate for Selection** — process selected layers
-- **Scan All Images on Page** — find and process all image nodes on the current page
-- **Settings** — open the plugin panel to the settings tab
+| Command | Action |
+|---------|--------|
+| **Open Visionati** | Open the plugin panel |
+| **Generate for Selection** | Process selected layers immediately |
+| **Scan All Images on Page** | Find and process every image on the current page |
+| **Settings** | Open the Settings tab |
 
-### Annotations
+## How Annotations Work
 
-Text is written using Figma's Annotations API with annotation categories:
+Text is written using Figma's [Annotations API](https://www.figma.com/plugin-docs/api/Annotation/) with [annotation categories](https://www.figma.com/plugin-docs/api/AnnotationCategory/):
 
 - Each field type gets its own color-coded category (created automatically on first use)
-- Multiple annotations can exist on the same node (one per field)
+- Multiple annotations can coexist on the same node (one per field)
 - Applying a field replaces only that field's annotation, preserving others
-- Visible when a node is selected in the design panel
+- Visible in the design panel when a node is selected
 - Visible in Dev Mode during developer handoff
-- Does not mutate document structure (no component conversion)
-- Existing annotations are skipped by default (enable "Include images with existing annotations" to overwrite)
+- No document structure changes (no component conversion)
+- Works on older Figma versions without color coding (graceful degradation)
+
+## Credits
+
+Each image processed costs credits per field based on the selected AI model. Each selected field is a separate API call. See [visionati.com](https://visionati.com) for current pricing.
+
+## Documentation
+
+Full documentation at [docs.visionati.com/figma-plugin/](https://docs.visionati.com/figma-plugin/).
 
 ## Development
 
-Watch mode for development (recompiles on file changes):
+To modify the plugin, edit `code.ts` and recompile:
 
-```
-npm run watch
+```bash
+npm install
+npm run build        # compile code.ts → code.js
+npm run watch        # watch mode (recompiles on save)
 ```
 
 After recompiling, close and reopen the plugin in Figma to pick up changes.
 
-### Architecture
-
-The plugin has two execution contexts:
-
-- **Sandbox** (`code.ts` → `code.js`) — runs in Figma's plugin sandbox. Handles document access (node traversal, image export, annotation writing), API calls via sandbox `fetch`, parallel async polling, annotation category management, and settings storage via `clientStorage`. No DOM access.
-- **UI** (`ui.html`) — runs in an iframe. Handles the settings panel, field selection, generate buttons, and multi-field results display. Communicates with the sandbox via `postMessage`.
-
-### Key Files
-
-| File | Description |
-|------|-------------|
-| `manifest.json` | Plugin configuration (menu, network access, relaunch buttons) |
-| `code.ts` | TypeScript source for the sandbox (compiles to `code.js`) |
-| `code.js` | Compiled output (gitignored) |
-| `ui.html` | Plugin UI: settings, field selection, generate actions, results preview |
-| `tsconfig.json` | TypeScript configuration |
-| `package.json` | Dependencies and build scripts |
-
-### Image Pipeline
-
-1. Find nodes with image fills (`paint.type === "IMAGE"`)
-2. Export as PNG via `node.exportAsync()` (capped at 2048px longest dimension)
-3. Encode to base64 via `figma.base64Encode()`
-4. For each selected field, batch POST to `api.visionati.com/api/fetch` with `file[]`, `file_name[]` (node IDs), and the field's role — all API calls submitted in parallel
-5. Poll all `response_uri` endpoints concurrently (up to 30 attempts, 2s interval)
-6. Match results back to nodes via `file_name`, grouped by field
-7. Preview in UI with color-coded field badges, then write as `node.annotations` with category IDs on Apply
-
-### PostMessage Protocol
-
-**UI → Sandbox:**
-- `{ type: 'generate', source: 'selection' | 'page', fields: FieldType[], overwrite?: boolean }`
-- `{ type: 'apply-field', nodeId: string, field: FieldType, description: string }`
-- `{ type: 'apply-node', nodeId: string, fields: [{ field, description }] }`
-- `{ type: 'apply-all', nodes: [{ nodeId, fields: [{ field, description }] }] }`
-- `{ type: 'discard-field', nodeId: string, field: FieldType }`
-- `{ type: 'discard-node', nodeId: string }`
-- `{ type: 'save-settings', settings: { apiKey, backend, language, prompt } }`
-- `{ type: 'load-settings' }`
-
-**Sandbox → UI:**
-- `{ type: 'settings', settings: {...} }`
-- `{ type: 'auto-generate', source: string }`
-- `{ type: 'categories', categories: {...} }`
-- `{ type: 'status', message: string }`
-- `{ type: 'progress', current: number, total: number, phase: string }`
-- `{ type: 'results', results: [...], fields: FieldType[] }`
-- `{ type: 'error', message: string }`
-- `{ type: 'field-applied', nodeId: string, field: FieldType }`
-- `{ type: 'field-discarded', nodeId: string, field: FieldType }`
-- `{ type: 'node-discarded', nodeId: string }`
-- `{ type: 'all-applied', applied: number, failed: number }`
-
-## Credits
-
-Each image processed costs credits per field based on the selected AI model. Each selected field (Alt Text, Caption, Description) is a separate API call. See [visionati.com](https://visionati.com) for current pricing.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture details, the PostMessage protocol, image pipeline internals, annotation system, and Figma API reference links.
 
 ## License
 
-Proprietary. All rights reserved.
+MIT. See [LICENSE](LICENSE).

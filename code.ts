@@ -27,8 +27,7 @@ interface PluginSettings {
 interface ImageNodeInfo {
   nodeId: string;
   nodeName: string;
-  width: number;
-  height: number;
+  thumbnail: string;
 }
 
 interface FieldResult {
@@ -40,23 +39,31 @@ interface FieldResult {
 interface NodeResult {
   nodeId: string;
   nodeName: string;
-  hasExistingAnnotation: boolean;
+  thumbnail?: string;
   fields: FieldResult[];
 }
 
 interface VisionatiAsset {
-  file_name?: string;
+  name?: string;
   descriptions?: Array<{
-    text: string;
-    backend: string;
+    description: string;
+    source: string;
   }>;
+}
+
+interface VisionatiAllResponse {
+  assets?: VisionatiAsset[];
+  errors?: string[];
 }
 
 interface VisionatiResponse {
   response_uri?: string;
-  assets?: VisionatiAsset[];
+  status?: string;
+  file_names?: string[];
+  all?: VisionatiAllResponse;
   error?: string;
   message?: string;
+  credits?: number;
 }
 
 // Message types from UI → Sandbox
@@ -64,7 +71,6 @@ interface GenerateMessage {
   type: 'generate';
   source: 'selection' | 'page';
   fields: FieldType[];
-  overwrite?: boolean;
 }
 
 interface ApplyFieldMessage {
@@ -99,6 +105,24 @@ interface DiscardNodeMessage {
   nodeId: string;
 }
 
+interface RemoveAnnotationMessage {
+  type: 'remove-annotation';
+  nodeId: string;
+  categoryLabel: string;
+}
+
+interface RemoveAllAnnotationsMessage {
+  type: 'remove-all-annotations';
+  nodeId: string;
+}
+
+interface EditAnnotationMessage {
+  type: 'edit-annotation';
+  nodeId: string;
+  categoryLabel: string;
+  newText: string;
+}
+
 interface SaveSettingsMessage {
   type: 'save-settings';
   settings: PluginSettings;
@@ -115,6 +139,9 @@ type UIMessage =
   | ApplyAllMessage
   | DiscardFieldMessage
   | DiscardNodeMessage
+  | RemoveAnnotationMessage
+  | RemoveAllAnnotationsMessage
+  | EditAnnotationMessage
   | SaveSettingsMessage
   | LoadSettingsMessage;
 
@@ -122,10 +149,13 @@ type UIMessage =
 // Constants
 // ============================================================================
 
+const DEBUG = false;
+
 const API_BASE_URL = 'https://api.visionati.com';
-const MAX_EXPORT_DIMENSION = 2048;
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 30;
+const MAX_EXPORT_DIMENSION = 2048;
+const BATCH_SIZE = 10;
 
 const DEFAULT_SETTINGS: PluginSettings = {
   apiKey: '',
@@ -164,6 +194,9 @@ const FIELD_CONFIGS: Record<FieldType, FieldConfig> = {
 
 // Category IDs cached for the session
 const categoryIdCache: Map<FieldType, string> = new Map();
+
+// Track selectionchange handler to avoid accumulating listeners
+let selectionChangeHandler: (() => void) | null = null;
 
 // ============================================================================
 // Node Detection
@@ -214,52 +247,40 @@ function getImageNodes(nodes: ReadonlyArray<SceneNode>): SceneNode[] {
   return imageNodes;
 }
 
-/**
- * Check if a node already has annotations.
- */
-function nodeHasAnnotations(node: SceneNode): boolean {
-  return (
-    'annotations' in node &&
-    Array.isArray((node as any).annotations) &&
-    (node as any).annotations.length > 0
-  );
-}
 
 // ============================================================================
 // Image Export
 // ============================================================================
 
 /**
- * Calculate export constraint to cap the longest dimension at MAX_EXPORT_DIMENSION.
- * Returns undefined if no scaling is needed.
+ * Export a node as PNG bytes, capping the longest dimension at MAX_EXPORT_DIMENSION.
+ * LLMs don't benefit from higher resolution, and capping keeps payloads manageable
+ * for large batches (e.g., 30+ images per API call).
  */
-function getExportConstraint(
-  node: SceneNode
-): { type: 'WIDTH'; value: number } | { type: 'HEIGHT'; value: number } | undefined {
-  const width = node.width;
-  const height = node.height;
-
-  if (width <= MAX_EXPORT_DIMENSION && height <= MAX_EXPORT_DIMENSION) {
-    return undefined;
+async function exportNodeAsPng(node: SceneNode): Promise<Uint8Array> {
+  // Cap the longest dimension to avoid huge payloads
+  const maxDim = Math.max(node.width, node.height);
+  if (maxDim > MAX_EXPORT_DIMENSION) {
+    const constraint: ExportSettingsImage['constraint'] =
+      node.width >= node.height
+        ? { type: 'WIDTH', value: MAX_EXPORT_DIMENSION }
+        : { type: 'HEIGHT', value: MAX_EXPORT_DIMENSION };
+    return await (node as ExportMixin).exportAsync({ format: 'PNG', constraint });
   }
-
-  if (width >= height) {
-    return { type: 'WIDTH', value: MAX_EXPORT_DIMENSION };
-  } else {
-    return { type: 'HEIGHT', value: MAX_EXPORT_DIMENSION };
-  }
+  return await (node as ExportMixin).exportAsync({ format: 'PNG' });
 }
 
 /**
- * Export a node as PNG bytes with optional size capping.
+ * Export a small thumbnail of a node for UI preview.
+ * Returns a base64 data URL string (data:image/png;base64,...).
  */
-async function exportNodeAsPng(node: SceneNode): Promise<Uint8Array> {
-  const constraint = getExportConstraint(node);
-  const settings: ExportSettings = {
+async function exportNodeThumbnail(node: SceneNode): Promise<string> {
+  const bytes = await (node as ExportMixin).exportAsync({
     format: 'PNG',
-    ...(constraint ? { constraint } : {}),
-  };
-  return await (node as ExportMixin).exportAsync(settings);
+    constraint: { type: 'WIDTH', value: 48 },
+  });
+  const base64 = figma.base64Encode(bytes);
+  return `data:image/png;base64,${base64}`;
 }
 
 // ============================================================================
@@ -299,7 +320,12 @@ async function saveSettings(settings: PluginSettings): Promise<void> {
  * Find or create an annotation category for the given field.
  * Caches the category ID for the session to avoid repeated lookups.
  */
-async function ensureCategoryForField(field: FieldType): Promise<string> {
+async function ensureCategoryForField(field: FieldType): Promise<string | undefined> {
+  // figma.annotations may be undefined on older Figma versions
+  if (!figma.annotations) {
+    return undefined;
+  }
+
   // Check cache first
   const cached = categoryIdCache.get(field);
   if (cached) {
@@ -334,10 +360,10 @@ async function ensureCategoryForField(field: FieldType): Promise<string> {
 
 /**
  * Ensure categories exist for all requested fields.
- * Returns a map of field → categoryId.
+ * Returns a map of field → categoryId (value is undefined when annotations API is unavailable).
  */
-async function ensureCategories(fields: FieldType[]): Promise<Map<FieldType, string>> {
-  const result = new Map<FieldType, string>();
+async function ensureCategories(fields: FieldType[]): Promise<Map<FieldType, string | undefined>> {
+  const result = new Map<FieldType, string | undefined>();
   for (const field of fields) {
     const id = await ensureCategoryForField(field);
     result.set(field, id);
@@ -422,32 +448,63 @@ async function pollSingleUri(
     });
 
     if (!response.ok) {
-      if (response.status === 202) {
-        continue;
-      }
       const text = await response.text();
       throw new Error(`Polling error for ${fieldLabel} (${response.status}): ${text.substring(0, 200)}`);
     }
 
     const data = await response.json() as VisionatiResponse;
 
-    if (data.assets && data.assets.length > 0) {
+    if (DEBUG) console.log(`[Visionati] Poll ${fieldLabel} attempt ${attempt + 1}: status="${data.status}", has all=${!!data.all}, has response_uri=${!!data.response_uri}`);
+
+    // Results ready: has assets (possibly with backend errors too)
+    if (data.all && data.all.assets && data.all.assets.length > 0) {
+      if (DEBUG) console.log(`[Visionati] Poll ${fieldLabel} DONE: ${data.all.assets.length} asset(s)`);
       return data;
     }
 
-    if (data.response_uri) {
+    // Still processing or queued (job not yet picked up by Sidekiq)
+    if (data.status === 'processing' || data.status === 'queued' || data.response_uri) {
+      if (DEBUG) console.log(`[Visionati] Poll ${fieldLabel} still ${data.status || 'waiting'}, continuing...`);
       continue;
     }
 
-    return data;
+    // Got an `all` with errors but no assets — backend failures
+    if (data.all && data.all.errors && data.all.errors.length > 0) {
+      throw new Error(`${fieldLabel}: ${data.all.errors.join('; ')}`);
+    }
+
+    // Completed but no results (all backends failed silently or empty response)
+    if (data.all && data.all.assets && data.all.assets.length === 0) {
+      console.warn(`[Visionati] Poll ${fieldLabel} completed with empty assets:`, JSON.stringify(data).substring(0, 500));
+      throw new Error(`${fieldLabel}: No results returned. The AI backend may have timed out. Please try again.`);
+    }
+
+    // Truly unexpected — include response data for diagnostics
+    const unexpectedDetail = data.error || data.message || '';
+    const responseSnippet = JSON.stringify(data).substring(0, 200);
+    console.warn(`[Visionati] Unexpected poll response for ${fieldLabel}:`, JSON.stringify(data).substring(0, 500));
+    if (unexpectedDetail) {
+      throw new Error(`${fieldLabel}: ${unexpectedDetail}`);
+    }
+    throw new Error(`${fieldLabel}: Unexpected API response: ${responseSnippet}`);
   }
 
   throw new Error(`Timed out waiting for ${fieldLabel} results. Please try again.`);
 }
 
+interface SubmitAndPollResult {
+  responses: Map<FieldType, VisionatiResponse>;
+  errors: Array<{ field: FieldType; message: string }>;
+  credits?: number;
+}
+
 /**
- * Submit API calls for multiple fields in parallel, then poll all concurrently.
- * Returns a map of field → VisionatiResponse.
+ * Submit API calls for multiple fields in parallel, chunking images into
+ * batches of BATCH_SIZE per call. All field×chunk combinations are submitted
+ * in parallel, polled concurrently, and results merged back per field.
+ *
+ * For 32 images × 3 fields with BATCH_SIZE=10:
+ *   4 batches × 3 fields = 12 API calls, all in parallel.
  */
 async function submitAndPollAllFields(
   apiKey: string,
@@ -455,89 +512,190 @@ async function submitAndPollAllFields(
   fileNames: string[],
   settings: PluginSettings,
   fields: FieldType[]
-): Promise<Map<FieldType, VisionatiResponse>> {
-  const results = new Map<FieldType, VisionatiResponse>();
+): Promise<SubmitAndPollResult> {
+  const responses = new Map<FieldType, VisionatiResponse>();
+  const errors: Array<{ field: FieldType; message: string }> = [];
 
-  // Submit all API calls in parallel (one per field)
-  sendToUI({
-    type: 'status',
-    message: `Submitting ${fields.length} API call${fields.length !== 1 ? 's' : ''} (${fields.map(f => FIELD_CONFIGS[f].categoryLabel).join(', ')})...`,
-  });
-
-  const submissions: Array<{ field: FieldType; promise: Promise<VisionatiResponse> }> = [];
-  for (const field of fields) {
-    const config = FIELD_CONFIGS[field];
-    const promise = callVisionatiApi(apiKey, base64Images, fileNames, settings, config.role);
-    submissions.push({ field, promise });
+  // Chunk images into batches
+  const chunks: Array<{ images: string[]; names: string[] }> = [];
+  for (let i = 0; i < base64Images.length; i += BATCH_SIZE) {
+    chunks.push({
+      images: base64Images.slice(i, i + BATCH_SIZE),
+      names: fileNames.slice(i, i + BATCH_SIZE),
+    });
   }
 
-  // Await all submissions
-  const submissionResults: Array<{ field: FieldType; response: VisionatiResponse }> = [];
+  const totalImages = base64Images.length;
+  const fieldLabels = fields.map(f => FIELD_CONFIGS[f].categoryLabel).join(', ');
+  sendToUI({
+    type: 'status',
+    message: `Processing ${totalImages} image${totalImages !== 1 ? 's' : ''} (${fieldLabels})...`,
+  });
+
+  // Submit all field × chunk combinations in parallel
+  interface ChunkSubmission {
+    field: FieldType;
+    chunkIndex: number;
+    promise: Promise<VisionatiResponse>;
+  }
+
+  const submissions: ChunkSubmission[] = [];
+  for (const field of fields) {
+    const config = FIELD_CONFIGS[field];
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const chunk = chunks[ci];
+      const promise = callVisionatiApi(apiKey, chunk.images, chunk.names, settings, config.role);
+      submissions.push({ field, chunkIndex: ci, promise });
+    }
+  }
+
+  // Await all submissions, collecting sync results and async polling URIs
+  const needsPolling: Array<{ field: FieldType; chunkIndex: number; responseUri: string }> = [];
+  const chunkResponses: Array<{ field: FieldType; chunkIndex: number; response: VisionatiResponse }> = [];
+
   for (const sub of submissions) {
     try {
       const response = await sub.promise;
-      submissionResults.push({ field: sub.field, response });
+      const label = FIELD_CONFIGS[sub.field].categoryLabel;
+      const chunkLabel = chunks.length > 1 ? ` (batch ${sub.chunkIndex + 1})` : '';
+
+      if (DEBUG) console.log(`[Visionati] Submission ${label}${chunkLabel}: status="${response.status}", has all=${!!response.all}, has response_uri=${!!response.response_uri}`);
+
+      if (response.all && response.all.assets && response.all.assets.length > 0) {
+        // Got sync results immediately
+        chunkResponses.push({ field: sub.field, chunkIndex: sub.chunkIndex, response });
+      } else if (response.response_uri) {
+        // Needs async polling
+        needsPolling.push({ field: sub.field, chunkIndex: sub.chunkIndex, responseUri: response.response_uri });
+      } else if (response.error || response.message) {
+        errors.push({ field: sub.field, message: `${label}${chunkLabel}: ${response.error || response.message}` });
+      } else if (response.all && response.all.errors && response.all.errors.length > 0) {
+        errors.push({ field: sub.field, message: `${label}${chunkLabel}: ${response.all.errors.join('; ')}` });
+      } else {
+        errors.push({ field: sub.field, message: `${label}${chunkLabel}: No results returned.` });
+      }
     } catch (err: any) {
-      throw new Error(`${FIELD_CONFIGS[sub.field].categoryLabel}: ${err?.message || err}`);
+      const label = FIELD_CONFIGS[sub.field].categoryLabel;
+      const chunkLabel = chunks.length > 1 ? ` (batch ${sub.chunkIndex + 1})` : '';
+      errors.push({ field: sub.field, message: `${label}${chunkLabel}: ${err?.message || err}` });
     }
   }
 
-  // Separate sync results from async (need polling)
-  const needsPolling: Array<{ field: FieldType; responseUri: string }> = [];
-
-  for (const sub of submissionResults) {
-    if (sub.response.assets && sub.response.assets.length > 0) {
-      // Got sync results
-      results.set(sub.field, sub.response);
-    } else if (sub.response.response_uri) {
-      needsPolling.push({ field: sub.field, responseUri: sub.response.response_uri });
-    } else if (sub.response.error || sub.response.message) {
-      throw new Error(
-        `${FIELD_CONFIGS[sub.field].categoryLabel}: ${sub.response.error || sub.response.message}`
-      );
-    } else {
-      throw new Error(
-        `${FIELD_CONFIGS[sub.field].categoryLabel}: Unexpected API response.`
-      );
-    }
-  }
-
-  // Poll all pending URIs concurrently
+  // Poll all pending URIs concurrently using allSettled so one failure doesn't kill others
+  let latestCredits: number | undefined;
   if (needsPolling.length > 0) {
-    const pollingLabels = needsPolling.map(p => FIELD_CONFIGS[p.field].categoryLabel).join(', ');
+    // Track progress by unique images completed (not API calls)
+    const completedChunkIndices = new Set<number>();
+    let completedImages = 0;
+    // Count images already done from sync responses
+    for (const cr of chunkResponses) {
+      if (!completedChunkIndices.has(cr.chunkIndex)) {
+        completedChunkIndices.add(cr.chunkIndex);
+        completedImages += chunks[cr.chunkIndex].images.length;
+      }
+    }
     sendToUI({
       type: 'status',
-      message: `Waiting for results (${pollingLabels})...`,
+      message: `Waiting for results (${completedImages}/${totalImages} images)...`,
     });
 
-    const pollPromises = needsPolling.map(p =>
-      pollSingleUri(
+    const pollPromises = needsPolling.map(p => {
+      const label = FIELD_CONFIGS[p.field].categoryLabel;
+      const chunkLabel = chunks.length > 1 ? ` batch ${p.chunkIndex + 1}` : '';
+      return pollSingleUri(
         apiKey,
         p.responseUri,
-        FIELD_CONFIGS[p.field].categoryLabel,
-        (attempt) => {
+        `${label}${chunkLabel}`,
+        () => {
+          // Per-attempt progress: show image-level completion
           sendToUI({
             type: 'progress',
-            current: attempt,
-            total: MAX_POLL_ATTEMPTS,
+            current: completedImages,
+            total: totalImages,
             phase: 'polling',
           });
         }
-      ).then(response => ({ field: p.field, response }))
-    );
+      ).then(response => {
+        if (!completedChunkIndices.has(p.chunkIndex)) {
+          completedChunkIndices.add(p.chunkIndex);
+          completedImages += chunks[p.chunkIndex].images.length;
+        }
+        sendToUI({
+          type: 'progress',
+          current: completedImages,
+          total: totalImages,
+          phase: 'polling',
+        });
+        return { field: p.field, chunkIndex: p.chunkIndex, response, credits: response.credits };
+      });
+    });
 
-    const pollResults = await Promise.all(pollPromises);
-    for (const pr of pollResults) {
-      results.set(pr.field, pr.response);
+    const settled = await Promise.allSettled(pollPromises);
+    for (let i = 0; i < settled.length; i++) {
+      const outcome = settled[i];
+      const field = needsPolling[i].field;
+      const label = FIELD_CONFIGS[field].categoryLabel;
+      const chunkLabel = chunks.length > 1 ? ` (batch ${needsPolling[i].chunkIndex + 1})` : '';
+      if (outcome.status === 'fulfilled' && outcome.value.credits !== undefined) {
+        latestCredits = outcome.value.credits;
+      }
+
+      if (outcome.status === 'fulfilled') {
+        chunkResponses.push(outcome.value);
+      } else {
+        const reason = outcome.reason;
+        errors.push({ field, message: `${label}${chunkLabel}: ${reason?.message || reason}` });
+      }
     }
   }
 
-  return results;
+  // Merge chunk responses into one response per field
+  for (const field of fields) {
+    const fieldChunks = chunkResponses.filter(cr => cr.field === field);
+    if (fieldChunks.length === 0) continue;
+
+    const mergedAssets: VisionatiAsset[] = [];
+    const mergedErrors: string[] = [];
+    for (const cr of fieldChunks) {
+      if (cr.response.all && cr.response.all.assets) {
+        mergedAssets.push(...cr.response.all.assets);
+      }
+      if (cr.response.all && cr.response.all.errors) {
+        mergedErrors.push(...cr.response.all.errors);
+      }
+    }
+
+    responses.set(field, {
+      all: {
+        assets: mergedAssets,
+        errors: mergedErrors.length > 0 ? mergedErrors : undefined,
+      },
+    });
+  }
+
+  return { responses, errors, credits: latestCredits };
 }
 
 // ============================================================================
 // Annotation Writing
 // ============================================================================
+
+/**
+ * Sanitize an annotation to ensure it has only `label` OR `labelMarkdown`, not both.
+ * Figma's validation rejects annotations with both set.
+ */
+function sanitizeAnnotation(ann: Annotation): Annotation {
+  const result: Record<string, any> = {};
+  // Prefer labelMarkdown over label
+  if (ann.labelMarkdown) {
+    result.labelMarkdown = ann.labelMarkdown;
+  } else if (ann.label) {
+    result.label = ann.label;
+  }
+  if (ann.properties) result.properties = ann.properties;
+  if (ann.categoryId) result.categoryId = ann.categoryId;
+  return result as Annotation;
+}
 
 /**
  * Write a single field's annotation to a node, preserving annotations from other fields
@@ -547,31 +705,37 @@ async function writeFieldAnnotation(
   node: SceneNode,
   field: FieldType,
   text: string,
-  categoryIds: Map<FieldType, string>
+  categoryIds: Map<FieldType, string | undefined>
 ): Promise<void> {
   if (!('annotations' in node)) {
     throw new Error(`Node "${node.name}" does not support annotations.`);
   }
 
   const categoryId = categoryIds.get(field);
-  if (!categoryId) {
-    throw new Error(`No category found for field "${field}".`);
-  }
-
   const config = FIELD_CONFIGS[field];
 
-  // Read existing annotations and filter out any with the same category
+  // Read existing annotations and filter out any with the same category or prefix
   const existing: Annotation[] = [...((node as any).annotations || [])];
-  const preserved = existing.filter(
-    (a: Annotation) => a.categoryId !== categoryId
-  );
+  const preserved = existing
+    .filter((a: Annotation) => {
+      if (categoryId && a.categoryId === categoryId) return false;
+      // When no category ID available, match by bold prefix text
+      if (!categoryId) {
+        const annText = a.labelMarkdown || a.label || '';
+        if (annText.startsWith(`**${config.annotationPrefix}**`)) return false;
+      }
+      return true;
+    })
+    .map(sanitizeAnnotation);
 
-  // Create the new annotation
+  // Create the new annotation (with categoryId when available)
   const newAnnotation: Annotation = {
     labelMarkdown: `**${config.annotationPrefix}**\n${text}`,
     properties: [{ type: 'fills' }],
-    categoryId: categoryId,
   };
+  if (categoryId) {
+    (newAnnotation as any).categoryId = categoryId;
+  }
 
   // Write back with the new annotation appended
   (node as any).annotations = [...preserved, newAnnotation];
@@ -583,34 +747,49 @@ async function writeFieldAnnotation(
 async function writeMultipleFieldAnnotations(
   node: SceneNode,
   fields: Array<{ field: FieldType; description: string }>,
-  categoryIds: Map<FieldType, string>
+  categoryIds: Map<FieldType, string | undefined>
 ): Promise<void> {
   if (!('annotations' in node)) {
     throw new Error(`Node "${node.name}" does not support annotations.`);
   }
 
-  // Collect all category IDs we're about to write
+  // Collect all category IDs and prefixes we're about to write
   const writingCategoryIds = new Set<string>();
+  const writingPrefixes = new Set<string>();
   for (const f of fields) {
     const catId = categoryIds.get(f.field);
     if (catId) writingCategoryIds.add(catId);
+    writingPrefixes.add(`**${FIELD_CONFIGS[f.field].annotationPrefix}**`);
   }
 
   // Read existing annotations and filter out ones we're replacing
   const existing: Annotation[] = [...((node as any).annotations || [])];
-  const preserved = existing.filter(
-    (a: Annotation) => !a.categoryId || !writingCategoryIds.has(a.categoryId)
-  );
+  const preserved = existing
+    .filter((a: Annotation) => {
+      if (a.categoryId && writingCategoryIds.has(a.categoryId)) return false;
+      // When no category ID on the annotation, match by bold prefix text
+      if (!a.categoryId) {
+        const annText = a.labelMarkdown || a.label || '';
+        for (const prefix of writingPrefixes) {
+          if (annText.startsWith(prefix)) return false;
+        }
+      }
+      return true;
+    })
+    .map(sanitizeAnnotation);
 
-  // Build new annotations
+  // Build new annotations (with categoryId when available)
   const newAnnotations: Annotation[] = fields.map(f => {
     const config = FIELD_CONFIGS[f.field];
-    const categoryId = categoryIds.get(f.field)!;
-    return {
+    const categoryId = categoryIds.get(f.field);
+    const ann: Record<string, any> = {
       labelMarkdown: `**${config.annotationPrefix}**\n${f.description}`,
       properties: [{ type: 'fills' as const }],
-      categoryId: categoryId,
     };
+    if (categoryId) {
+      ann.categoryId = categoryId;
+    }
+    return ann as Annotation;
   });
 
   (node as any).annotations = [...preserved, ...newAnnotations];
@@ -621,7 +800,7 @@ async function writeMultipleFieldAnnotations(
  */
 function setRelaunchOnNode(node: SceneNode): void {
   if ('setRelaunchData' in node) {
-    (node as any).setRelaunchData({ selection: '' });
+    (node as any).setRelaunchData({ open: '' });
   }
 }
 
@@ -637,6 +816,31 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Match an asset name from the API response back to the original node ID we sent.
+ * The API transforms file_name values into server temp paths, e.g.:
+ *   sent: "1:2504"  →  returned: "/tmp/files20260214-1-ei7mrm/1_2504"
+ * Strategy:
+ *   1. Direct match (handles future API improvements)
+ *   2. Extract basename, reverse the colon→underscore substitution, match
+ */
+function matchAssetToNodeId(assetName: string, nodeIds: string[]): string | null {
+  // Direct match
+  for (const id of nodeIds) {
+    if (assetName === id) return id;
+  }
+
+  // Extract basename from path
+  const basename = assetName.split('/').pop() || '';
+
+  // Try reversing the colon→underscore transformation
+  for (const id of nodeIds) {
+    if (basename === id.replace(/:/g, '_')) return id;
+  }
+
+  return null;
+}
+
 // ============================================================================
 // Main Generation Flow
 // ============================================================================
@@ -646,8 +850,7 @@ function sleep(ms: number): Promise<void> {
  */
 async function generateForFields(
   source: 'selection' | 'page',
-  fields: FieldType[],
-  overwrite: boolean
+  fields: FieldType[]
 ): Promise<void> {
   try {
     // Load settings
@@ -699,33 +902,13 @@ async function generateForFields(
       return;
     }
 
-    // Filter out nodes with existing annotations (unless overwrite is requested)
-    const imageNodes = overwrite
-      ? allImageNodes
-      : allImageNodes.filter((node) => !nodeHasAnnotations(node));
-
-    const skippedCount = allImageNodes.length - imageNodes.length;
-
-    if (imageNodes.length === 0) {
-      sendToUI({
-        type: 'error',
-        message: `All ${allImageNodes.length} image(s) already have annotations. Enable "Include images with existing annotations" to regenerate.`,
-      });
-      return;
-    }
+    const imageNodes = allImageNodes;
 
     const fieldLabels = fields.map(f => FIELD_CONFIGS[f].categoryLabel).join(', ');
-    if (skippedCount > 0) {
-      sendToUI({
-        type: 'status',
-        message: `Found ${imageNodes.length} image(s) (${skippedCount} skipped). Generating: ${fieldLabels}`,
-      });
-    } else {
-      sendToUI({
-        type: 'status',
-        message: `Found ${imageNodes.length} image(s). Generating: ${fieldLabels}`,
-      });
-    }
+    sendToUI({
+      type: 'status',
+      message: `Found ${imageNodes.length} image(s). Generating: ${fieldLabels}`,
+    });
 
     // Ensure annotation categories exist
     sendToUI({ type: 'status', message: 'Setting up annotation categories...' });
@@ -765,11 +948,19 @@ async function generateForFields(
         const base64 = figma.base64Encode(bytes);
         base64Images.push(base64);
         fileNames.push(node.id);
+
+        // Export a small thumbnail for the UI preview
+        let thumbnail = '';
+        try {
+          thumbnail = await exportNodeThumbnail(node);
+        } catch {
+          // Thumbnail is optional — don't fail the whole export
+        }
+
         nodeInfos.push({
           nodeId: node.id,
           nodeName: node.name,
-          width: Math.round(node.width),
-          height: Math.round(node.height),
+          thumbnail: thumbnail,
         });
       } catch (err) {
         console.error(`Failed to export node "${node.name}" (${node.id}):`, err);
@@ -789,7 +980,7 @@ async function generateForFields(
     }
 
     // Submit API calls for all fields and poll for results
-    const fieldResponses = await submitAndPollAllFields(
+    const { responses: fieldResponses, errors: fieldErrors, credits: remainingCredits } = await submitAndPollAllFields(
       settings.apiKey,
       base64Images,
       fileNames,
@@ -797,26 +988,71 @@ async function generateForFields(
       fields
     );
 
+    // If ALL fields failed, show error and bail
+    if (fieldResponses.size === 0) {
+      const messages = fieldErrors.map(e => e.message);
+      sendToUI({
+        type: 'error',
+        messages: messages.length > 0
+          ? messages
+          : ['The API returned no results. Try a different model or check your API credits.'],
+      });
+      return;
+    }
+
     // Parse results and group by node
     const nodeResultMap = new Map<string, NodeResult>();
 
     // Initialize entries for all exported nodes
     for (const info of nodeInfos) {
-      const node = nodeMap.get(info.nodeId);
       nodeResultMap.set(info.nodeId, {
         nodeId: info.nodeId,
         nodeName: info.nodeName,
-        hasExistingAnnotation: node ? nodeHasAnnotations(node) : false,
+        thumbnail: info.thumbnail || undefined,
         fields: [],
       });
     }
 
-    // Process responses for each field
+    // Surface any backend errors from successful responses as warnings.
+    // Errors from responses that also had assets were already captured during
+    // submission, but polling results may also carry errors — capture those too.
+    const fieldsWithSubmissionErrors = new Set<FieldType>(fieldErrors.map(e => e.field));
     for (const [field, response] of fieldResponses) {
-      if (!response.assets) continue;
+      if (response.all && response.all.errors && response.all.errors.length > 0) {
+        const label = FIELD_CONFIGS[field].categoryLabel;
+        console.warn(`[Visionati] ${label} backend errors:`, response.all.errors);
+        // Only add if not already captured during submission phase
+        if (!fieldsWithSubmissionErrors.has(field)) {
+          fieldErrors.push({
+            field,
+            message: `${label}: ${response.all.errors.join('; ')}`,
+          });
+        }
+      }
+    }
 
-      for (const asset of response.assets) {
-        const nodeId = asset.file_name;
+    // Process responses for each field that succeeded.
+    // The API transforms file_name values into server temp paths (e.g., "1:2504" becomes
+    // "/tmp/files.../1_2504"). Match by extracting the basename and reversing the
+    // colon-to-underscore conversion.
+    const nodeIds = [...nodeResultMap.keys()];
+    if (DEBUG) console.log(`[Visionati] Processing ${fieldResponses.size} field response(s), ${fieldErrors.length} error(s)`);
+    if (DEBUG) console.log(`[Visionati] Node IDs we're looking for:`, nodeIds);
+
+    for (const [field, response] of fieldResponses) {
+      if (!response.all || !response.all.assets) {
+        if (DEBUG) console.log(`[Visionati] Field "${field}": no assets in response`);
+        continue;
+      }
+
+      const assets = response.all.assets;
+      if (DEBUG) console.log(`[Visionati] Field "${field}": ${assets.length} asset(s)`);
+
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        const nodeId = matchAssetToNodeId(asset.name || '', nodeIds);
+        if (DEBUG) console.log(`[Visionati] Asset ${i}: name="${asset.name}", matched nodeId="${nodeId}"`);
+
         if (!nodeId) continue;
 
         const nodeResult = nodeResultMap.get(nodeId);
@@ -826,8 +1062,11 @@ async function generateForFields(
         let backendName = settings.backend;
 
         if (asset.descriptions && asset.descriptions.length > 0) {
-          description = asset.descriptions[0].text || '';
-          backendName = asset.descriptions[0].backend || settings.backend;
+          if (DEBUG) console.log(`[Visionati] Asset ${i}: ${asset.descriptions.length} description(s), first: ${JSON.stringify(asset.descriptions[0]).substring(0, 150)}`);
+          description = asset.descriptions[0].description || '';
+          backendName = asset.descriptions[0].source || settings.backend;
+        } else {
+          if (DEBUG) console.log(`[Visionati] Asset ${i}: no descriptions`);
         }
 
         if (description) {
@@ -849,11 +1088,43 @@ async function generateForFields(
     }
 
     if (results.length === 0) {
+      const messages = fieldErrors.map(e => e.message);
       sendToUI({
         type: 'error',
-        message: 'The API returned no descriptions. Try a different model or check your API credits.',
+        messages: messages.length > 0
+          ? messages
+          : ['The API returned no descriptions. Try a different model or check your API credits.'],
       });
       return;
+    }
+
+    // Detect fields that were requested but produced no descriptions anywhere
+    // (API call "succeeded" but returned empty/no descriptions — silent failure)
+    const fieldsWithResults = new Set<FieldType>();
+    for (const nr of results) {
+      for (const f of nr.fields) {
+        fieldsWithResults.add(f.field);
+      }
+    }
+    const fieldsAlreadyErrored = new Set<FieldType>(fieldErrors.map(e => e.field));
+    for (const field of fields) {
+      if (!fieldsWithResults.has(field) && !fieldsAlreadyErrored.has(field)) {
+        const label = FIELD_CONFIGS[field].categoryLabel;
+        console.warn(`[Visionati] ${label}: API returned no descriptions (response had assets but all descriptions were empty)`);
+        fieldErrors.push({
+          field,
+          message: `${label}: No descriptions returned. The model may not have produced output for this role. Try a different model.`,
+        });
+      }
+    }
+
+    // Report partial errors (some fields failed, others succeeded)
+    if (fieldErrors.length > 0) {
+      const failedLabels = fieldErrors.map(e => FIELD_CONFIGS[e.field].categoryLabel);
+      sendToUI({
+        type: 'status',
+        message: `Warning: ${failedLabels.join(', ')} failed. Showing results for fields that succeeded.`,
+      });
     }
 
     // Send results to UI for preview
@@ -861,8 +1132,9 @@ async function generateForFields(
       type: 'results',
       results: results,
       totalImages: imageNodes.length,
-      skippedCount: skippedCount,
       fields: fields,
+      fieldErrors: fieldErrors.map(e => ({ field: e.field, message: e.message })),
+      credits: remainingCredits,
     });
   } catch (err: any) {
     const message = err?.message || String(err);
@@ -880,25 +1152,36 @@ async function generateForFields(
 figma.ui.onmessage = async (msg: UIMessage) => {
   switch (msg.type) {
     case 'load-settings': {
-      const settings = await loadSettings();
-      sendToUI({ type: 'settings', settings });
+      try {
+        const settings = await loadSettings();
+        sendToUI({ type: 'settings', settings });
+      } catch (err: any) {
+        console.error('[Visionati] Failed to load settings:', err);
+        sendToUI({ type: 'settings', settings: { ...DEFAULT_SETTINGS } });
+        sendToUI({ type: 'error', message: `Failed to load settings: ${err?.message || err}` });
+      }
       break;
     }
 
     case 'save-settings': {
-      await saveSettings(msg.settings);
-      sendToUI({ type: 'status', message: 'Settings saved.' });
+      try {
+        await saveSettings(msg.settings);
+        sendToUI({ type: 'status', message: 'Settings saved.' });
+      } catch (err: any) {
+        console.error('[Visionati] Failed to save settings:', err);
+        sendToUI({ type: 'error', message: `Failed to save settings: ${err?.message || err}` });
+      }
       break;
     }
 
     case 'generate': {
-      await generateForFields(msg.source, msg.fields, msg.overwrite || false);
+      await generateForFields(msg.source, msg.fields);
       break;
     }
 
     case 'apply-field': {
       try {
-        const node = figma.getNodeById(msg.nodeId) as SceneNode | null;
+        const node = await figma.getNodeByIdAsync(msg.nodeId) as SceneNode | null;
         if (!node) {
           sendToUI({
             type: 'error',
@@ -916,6 +1199,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
         });
         const label = FIELD_CONFIGS[msg.field].categoryLabel;
         figma.notify(`${label} applied to "${node.name}".`);
+        sendSelectionAnnotations();
       } catch (err: any) {
         sendToUI({
           type: 'error',
@@ -927,7 +1211,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
 
     case 'apply-node': {
       try {
-        const node = figma.getNodeById(msg.nodeId) as SceneNode | null;
+        const node = await figma.getNodeByIdAsync(msg.nodeId) as SceneNode | null;
         if (!node) {
           sendToUI({
             type: 'error',
@@ -952,6 +1236,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
         figma.notify(
           `${count} annotation${count !== 1 ? 's' : ''} applied to "${node.name}".`
         );
+        sendSelectionAnnotations();
       } catch (err: any) {
         sendToUI({
           type: 'error',
@@ -976,7 +1261,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
 
       for (const nodeData of msg.nodes) {
         try {
-          const node = figma.getNodeById(nodeData.nodeId) as SceneNode | null;
+          const node = await figma.getNodeByIdAsync(nodeData.nodeId) as SceneNode | null;
           if (!node) {
             failed++;
             continue;
@@ -1011,6 +1296,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
         applied: applied,
         failed: failed,
       });
+      sendSelectionAnnotations();
       break;
     }
 
@@ -1030,8 +1316,181 @@ figma.ui.onmessage = async (msg: UIMessage) => {
       });
       break;
     }
+
+    case 'remove-annotation': {
+      try {
+        const node = await figma.getNodeByIdAsync(msg.nodeId) as SceneNode | null;
+        if (!node || !('annotations' in node)) {
+          sendToUI({ type: 'error', message: 'Node not found or does not support annotations.' });
+          break;
+        }
+
+        // Find the category ID by label (if annotations API is available)
+        let targetCategoryId: string | null = null;
+        if (figma.annotations) {
+          const categories = await figma.annotations.getAnnotationCategoriesAsync();
+          for (const cat of categories) {
+            if (cat.label === msg.categoryLabel) {
+              targetCategoryId = cat.id;
+              break;
+            }
+          }
+        }
+
+        const existing: Annotation[] = [...((node as any).annotations || [])];
+
+        if (targetCategoryId) {
+          // Remove annotations matching the category
+          const filtered = existing
+            .filter((a: Annotation) => a.categoryId !== targetCategoryId)
+            .map(sanitizeAnnotation);
+          (node as any).annotations = filtered;
+        } else {
+          // No category match — remove by label text match
+          const filtered = existing
+            .filter((a: Annotation) => {
+              const text = a.labelMarkdown || a.label || '';
+              return !text.includes(`**${msg.categoryLabel.toUpperCase()}**`);
+            })
+            .map(sanitizeAnnotation);
+          (node as any).annotations = filtered;
+        }
+
+        figma.notify(`Removed ${msg.categoryLabel} from "${node.name}".`);
+        sendSelectionAnnotations();
+      } catch (err: any) {
+        sendToUI({ type: 'error', message: `Failed to remove: ${err?.message || err}` });
+      }
+      break;
+    }
+
+    case 'edit-annotation': {
+      try {
+        const node = await figma.getNodeByIdAsync(msg.nodeId) as SceneNode | null;
+        if (!node || !('annotations' in node)) {
+          sendToUI({ type: 'error', message: 'Node not found or does not support annotations.' });
+          break;
+        }
+
+        // Find the category ID by label (if annotations API is available)
+        let targetCategoryId: string | null = null;
+        if (figma.annotations) {
+          const categories = await figma.annotations.getAnnotationCategoriesAsync();
+          for (const cat of categories) {
+            if (cat.label === msg.categoryLabel) {
+              targetCategoryId = cat.id;
+              break;
+            }
+          }
+        }
+
+        const existing: Annotation[] = [...((node as any).annotations || [])];
+        let found = false;
+
+        const updated = existing.map((a: Annotation) => {
+          const matchesCat = targetCategoryId && a.categoryId === targetCategoryId;
+          const matchesText = !targetCategoryId && (a.labelMarkdown || a.label || '').includes(`**${msg.categoryLabel.toUpperCase()}**`);
+
+          if ((matchesCat || matchesText) && !found) {
+            found = true;
+            // Rebuild with the new text, preserving bold prefix and category
+            const prefix = `**${msg.categoryLabel.toUpperCase()}**`;
+            const result: Record<string, any> = {
+              labelMarkdown: `${prefix}\n${msg.newText}`,
+            };
+            if (a.properties) result.properties = a.properties;
+            if (a.categoryId) result.categoryId = a.categoryId;
+            return result as Annotation;
+          }
+          return sanitizeAnnotation(a);
+        });
+
+        if (found) {
+          (node as any).annotations = updated;
+          figma.notify(`Updated ${msg.categoryLabel} on "${node.name}".`);
+        } else {
+          sendToUI({ type: 'error', message: `No ${msg.categoryLabel} annotation found on "${node.name}".` });
+        }
+        sendSelectionAnnotations();
+      } catch (err: any) {
+        sendToUI({ type: 'error', message: `Failed to edit: ${err?.message || err}` });
+      }
+      break;
+    }
+
+    case 'remove-all-annotations': {
+      try {
+        const node = await figma.getNodeByIdAsync(msg.nodeId) as SceneNode | null;
+        if (!node || !('annotations' in node)) {
+          sendToUI({ type: 'error', message: 'Node not found or does not support annotations.' });
+          break;
+        }
+        (node as any).annotations = [];
+        figma.notify(`Removed all annotations from "${node.name}".`);
+        sendSelectionAnnotations();
+      } catch (err: any) {
+        sendToUI({ type: 'error', message: `Failed to remove: ${err?.message || err}` });
+      }
+      break;
+    }
   }
 };
+
+// ============================================================================
+// Selection Change — Read Annotations
+// ============================================================================
+
+/**
+ * Read annotations from selected nodes and send to UI for display.
+ */
+async function sendSelectionAnnotations(): Promise<void> {
+  const selection = figma.currentPage.selection;
+  if (selection.length === 0) {
+    sendToUI({ type: 'selection-annotations', nodes: [] });
+    return;
+  }
+
+  const annotatedNodes: Array<{
+    nodeId: string;
+    nodeName: string;
+    annotations: Array<{ label: string; categoryId?: string; text: string }>;
+  }> = [];
+
+  for (const node of selection) {
+    if (!('annotations' in node)) continue;
+    const annotations = (node as any).annotations as ReadonlyArray<Annotation>;
+    if (!annotations || annotations.length === 0) continue;
+
+    const parsed: Array<{ label: string; categoryId?: string; text: string }> = [];
+    for (const ann of annotations) {
+      const text = ann.labelMarkdown || ann.label || '';
+      if (!text) continue;
+
+      // Try to resolve category label
+      let label = '';
+      if (ann.categoryId && figma.annotations) {
+        const cat = await figma.annotations.getAnnotationCategoryByIdAsync(ann.categoryId);
+        if (cat) label = cat.label;
+      }
+
+      parsed.push({
+        label: label,
+        categoryId: ann.categoryId || undefined,
+        text: text,
+      });
+    }
+
+    if (parsed.length > 0) {
+      annotatedNodes.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        annotations: parsed,
+      });
+    }
+  }
+
+  sendToUI({ type: 'selection-annotations', nodes: annotatedNodes });
+}
 
 // ============================================================================
 // Plugin Entry Point
@@ -1052,22 +1511,55 @@ async function showPluginUI(command?: string): Promise<void> {
   const settings = await loadSettings();
   sendToUI({ type: 'settings', settings });
 
-  // If launched with a specific command, tell the UI
-  if (command && command !== 'settings') {
+  // If launched with a generate command, tell the UI to auto-trigger
+  if (command === 'selection' || command === 'all-images') {
     sendToUI({ type: 'auto-generate', source: command as 'selection' | 'all-images' });
+  } else if (command === 'settings') {
+    sendToUI({ type: 'switch-tab', tab: 'settings' });
   }
+
+  // Listen for selection changes to show existing annotations
+  // Remove old listener first to avoid accumulation across re-opens
+  if (selectionChangeHandler) {
+    figma.off('selectionchange', selectionChangeHandler);
+  }
+  selectionChangeHandler = () => {
+    const nodeIds = figma.currentPage.selection.map(n => n.id);
+    sendToUI({ type: 'selection-changed', nodeIds });
+    sendSelectionAnnotations().catch(err => {
+      console.error('[Visionati] Failed to read selection annotations:', err);
+    });
+  };
+  figma.on('selectionchange', selectionChangeHandler);
+
+  // Send initial selection annotations
+  sendSelectionAnnotations().catch(err => {
+    console.error('[Visionati] Failed to read initial selection annotations:', err);
+  });
 }
 
 // Handle plugin run from menu commands
 figma.on('run', async ({ command }: RunEvent) => {
-  switch (command) {
-    case 'selection':
-    case 'all-images':
-    case 'settings':
-      await showPluginUI(command);
-      break;
-    default:
-      await showPluginUI();
-      break;
+  try {
+    switch (command) {
+      case 'open':
+      case 'selection':
+      case 'all-images':
+      case 'settings':
+        await showPluginUI(command);
+        break;
+      default:
+        await showPluginUI();
+        break;
+    }
+  } catch (err: any) {
+    console.error('[Visionati] Plugin startup failed:', err);
+    // Try to show the UI with an error if possible
+    try {
+      figma.showUI(__html__, { width: 380, height: 600, themeColors: true, title: 'Visionati' });
+      sendToUI({ type: 'error', message: `Plugin failed to start: ${err?.message || err}` });
+    } catch {
+      figma.closePlugin(`Plugin failed to start: ${err?.message || err}`);
+    }
   }
 });
