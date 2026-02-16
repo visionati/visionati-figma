@@ -1,6 +1,6 @@
 # Visionati
 
-![Visionati](.figma-community/cover-1920x960.png)
+![Visionati](.figma-community/cover-1920x1080.png)
 
 AI-powered alt text, captions, and descriptions for Figma images.
 

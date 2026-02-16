@@ -1,6 +1,6 @@
 {
   "name": "Visionati",
-  "id": "visionati-figma-plugin",
+  "id": "1605062423418694180",
   "api": "1.0.0",
   "editorType": ["figma", "dev"],
   "main": "code.js",
