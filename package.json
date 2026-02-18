@@ -1,6 +1,6 @@
 {
   "name": "visionati-figma",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Visionati — AI-powered alt text, captions, and descriptions for Figma images",
   "scripts": {
     "build": "tsc",

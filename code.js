@@ -276,26 +276,26 @@ function pollSingleUri(apiKey, responseUri, fieldLabel, onProgress) {
             const data = yield response.json();
             if (DEBUG)
                 console.log(`[Visionati] Poll ${fieldLabel} attempt ${attempt + 1}: status="${data.status}", has all=${!!data.all}, has response_uri=${!!data.response_uri}`);
-            // Results ready: has assets (possibly with backend errors too)
-            if (data.all && data.all.assets && data.all.assets.length > 0) {
-                if (DEBUG)
-                    console.log(`[Visionati] Poll ${fieldLabel} DONE: ${data.all.assets.length} asset(s)`);
-                return data;
-            }
-            // Still processing or queued (job not yet picked up by Sidekiq)
-            if (data.status === 'processing' || data.status === 'queued' || data.response_uri) {
-                if (DEBUG)
-                    console.log(`[Visionati] Poll ${fieldLabel} still ${data.status || 'waiting'}, continuing...`);
-                continue;
-            }
-            // Got an `all` with errors but no assets — backend failures
-            if (data.all && data.all.errors && data.all.errors.length > 0) {
-                throw new Error(`${fieldLabel}: ${data.all.errors.join('; ')}`);
-            }
-            // Completed but no results (all backends failed silently or empty response)
-            if (data.all && data.all.assets && data.all.assets.length === 0) {
+            // Done: results are ready.
+            if (data.status === 'completed') {
+                if (data.all && data.all.assets && data.all.assets.length > 0) {
+                    if (DEBUG)
+                        console.log(`[Visionati] Poll ${fieldLabel} DONE: ${data.all.assets.length} asset(s)`);
+                    return data;
+                }
+                // Completed but got errors and no assets — backend failures
+                if (data.all && data.all.errors && data.all.errors.length > 0) {
+                    throw new Error(`${fieldLabel}: ${data.all.errors.join('; ')}`);
+                }
+                // Completed but no results (all backends failed silently or empty response)
                 console.warn(`[Visionati] Poll ${fieldLabel} completed with empty assets:`, JSON.stringify(data).substring(0, 500));
                 throw new Error(`${fieldLabel}: No results returned. The AI backend may have timed out. Please try again.`);
+            }
+            // Still waiting: keep polling.
+            if (data.status === 'queued' || data.status === 'processing') {
+                if (DEBUG)
+                    console.log(`[Visionati] Poll ${fieldLabel} still ${data.status}, continuing...`);
+                continue;
             }
             // Truly unexpected — include response data for diagnostics
             const unexpectedDetail = data.error || data.message || '';
@@ -354,13 +354,17 @@ function submitAndPollAllFields(apiKey, base64Images, fileNames, settings, field
                 const chunkLabel = chunks.length > 1 ? ` (batch ${sub.chunkIndex + 1})` : '';
                 if (DEBUG)
                     console.log(`[Visionati] Submission ${label}${chunkLabel}: status="${response.status}", has all=${!!response.all}, has response_uri=${!!response.response_uri}`);
-                if (response.all && response.all.assets && response.all.assets.length > 0) {
+                if (response.status === 'completed' && response.all && response.all.assets && response.all.assets.length > 0) {
                     // Got sync results immediately
                     chunkResponses.push({ field: sub.field, chunkIndex: sub.chunkIndex, response });
                 }
                 else if (response.response_uri) {
                     // Needs async polling
                     needsPolling.push({ field: sub.field, chunkIndex: sub.chunkIndex, responseUri: response.response_uri });
+                }
+                else if (response.status === 'queued' || response.status === 'processing') {
+                    // Async but missing response_uri — shouldn't happen, treat as error
+                    errors.push({ field: sub.field, message: `${label}${chunkLabel}: Async response missing polling URI.` });
                 }
                 else if (response.error || response.message) {
                     errors.push({ field: sub.field, message: `${label}${chunkLabel}: ${response.error || response.message}` });
